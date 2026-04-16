@@ -4,19 +4,55 @@ import http.server
 import json
 import os
 import subprocess
+import time
 import urllib.parse
-from typing import List
+from typing import List, Optional
 
 from htmlvault.scanner import scan
 from htmlvault.generator import generate
 
 
+class _Cache:
+    """Gallery cache — avoid re-scanning on every page load."""
+    html = ""          # rendered gallery HTML
+    files = []         # scan results
+    _dirty = True      # needs re-scan
+    _last_scan = 0.0   # timestamp of last scan
+
+    @classmethod
+    def invalidate(cls):
+        cls._dirty = True
+
+    @classmethod
+    def get_html(cls, vault_dir: str) -> str:
+        # Auto-invalidate after 30s so new files eventually appear
+        if time.time() - cls._last_scan > 30:
+            cls._dirty = True
+
+        if not cls._dirty and cls.html:
+            return cls.html
+
+        dirs = _load_dirs(vault_dir)
+        pins = _load_pins(_pins_path(vault_dir))
+        cls.files = scan(dirs)
+        cls.html = generate(cls.files, dirs[0] if dirs else ".", pins=pins)
+        cls._dirty = False
+        cls._last_scan = time.time()
+        return cls.html
+
+
 class VaultHandler(http.server.BaseHTTPRequestHandler):
     """HTTP handler with API endpoints."""
 
-    # Set by serve() before starting
-    vault_dir = ""    # .htmlvault/ directory
-    _dirs = []        # scan directories
+    vault_dir = ""
+
+    def do_OPTIONS(self):
+        """Handle CORS preflight."""
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -24,11 +60,7 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
         qs = urllib.parse.parse_qs(parsed.query)
 
         if path == "/" or path == "/index.html":
-            # Regenerate gallery on each request (picks up dir changes, trash, etc.)
-            dirs = _load_dirs(self.vault_dir)
-            pins = _load_pins(_pins_path(self.vault_dir))
-            files = scan(dirs)
-            html = generate(files, dirs[0] if dirs else ".", pins=pins)
+            html = _Cache.get_html(self.vault_dir)
             self._send_html(html)
             return
 
@@ -60,20 +92,24 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
             self._send_json({"ok": True, "dirs": dirs})
             return
 
-        # Serve HTML files for iframe preview: /preview/<relpath>
+        # Serve files for iframe preview (HTML + relative assets)
         if path.startswith("/preview/"):
             relpath = urllib.parse.unquote(path[len("/preview/"):])
-            # Search across all configured directories
             dirs = _load_dirs(self.vault_dir)
             for d in dirs:
                 filepath = os.path.join(d, relpath)
-                if filepath.endswith(".html") and os.path.isfile(filepath):
+                # Security: must be within a scan dir
+                if not os.path.abspath(filepath).startswith(os.path.abspath(d)):
+                    continue
+                if os.path.isfile(filepath):
                     try:
                         with open(filepath, "rb") as f:
                             data = f.read()
+                        ctype = _guess_content_type(filepath)
                         self.send_response(200)
-                        self.send_header("Content-Type", "text/html; charset=utf-8")
+                        self.send_header("Content-Type", ctype)
                         self.send_header("Content-Length", str(len(data)))
+                        self.send_header("Cache-Control", "max-age=60")
                         self.end_headers()
                         self.wfile.write(data)
                     except OSError:
@@ -98,7 +134,6 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "not an html file"}, 403)
                 return
 
-            # Safety: must be under one of the configured dirs
             dirs = _load_dirs(self.vault_dir)
             parent = None
             for d in dirs:
@@ -116,6 +151,7 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
                 dest = os.path.join(trash_dir, rel)
                 os.makedirs(os.path.dirname(dest), exist_ok=True)
                 os.rename(abs_path, dest)
+                _Cache.invalidate()
                 self._send_json({"ok": True, "trashed": filepath})
             except OSError as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
@@ -136,17 +172,16 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
                 pins = [p for p in pins if p != relpath]
 
             _save_json(pins_path, pins)
+            _Cache.invalidate()
             self._send_json({"ok": True, "pins": pins})
             return
 
         if path == "/api/add-dir":
             dir_path = body.get("path", "")
             if dir_path:
-                # Direct path provided (e.g. from drag-drop)
                 dir_path = os.path.expanduser(dir_path)
                 dir_path = os.path.abspath(dir_path)
             else:
-                # No path — open native macOS folder picker
                 dir_path = _pick_folder()
 
             if not dir_path:
@@ -160,6 +195,7 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
             if dir_path not in dirs:
                 dirs.append(dir_path)
                 _save_dirs(self.vault_dir, dirs)
+            _Cache.invalidate()
             self._send_json({"ok": True, "dirs": dirs})
             return
 
@@ -172,6 +208,7 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "need at least one dir"}, 400)
                 return
             _save_dirs(self.vault_dir, dirs)
+            _Cache.invalidate()
             self._send_json({"ok": True, "dirs": dirs})
             return
 
@@ -206,10 +243,29 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
             print(f"  API: {args[0]}")
 
 
-# -- Storage helpers --
+# -- Helpers --
+
+_CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+}
+
+def _guess_content_type(filepath: str) -> str:
+    ext = os.path.splitext(filepath)[1].lower()
+    return _CONTENT_TYPES.get(ext, "application/octet-stream")
 
 def _pick_folder() -> str:
-    """Open macOS native folder picker dialog, return selected path or empty string."""
+    """Open macOS native folder picker dialog."""
     try:
         result = subprocess.run(
             ["osascript", "-e",
@@ -223,14 +279,11 @@ def _pick_folder() -> str:
         pass
     return ""
 
-def _vault_dir_path(vault_dir: str, filename: str) -> str:
-    return os.path.join(vault_dir, filename)
-
 def _pins_path(vault_dir: str) -> str:
-    return _vault_dir_path(vault_dir, "pins.json")
+    return os.path.join(vault_dir, "pins.json")
 
 def _dirs_path(vault_dir: str) -> str:
-    return _vault_dir_path(vault_dir, "config.json")
+    return os.path.join(vault_dir, "config.json")
 
 def _load_json(filepath: str, default=None):
     if os.path.isfile(filepath):
@@ -268,35 +321,28 @@ def _save_dirs(vault_dir: str, dirs: List[str]) -> None:
 # -- Public API --
 
 def load_pins(pins_file: str) -> List[str]:
-    """Public interface for loading pins."""
     return _load_pins(pins_file)
-
 
 def serve(
     directories: List[str],
     vault_dir: str,
     port: int = 7749,
 ) -> None:
-    """Start the local server.
-
-    Args:
-        directories: initial scan directories
-        vault_dir: .htmlvault/ directory for config/pins/trash
-        port: server port
-    """
     os.makedirs(vault_dir, exist_ok=True)
 
-    # Save initial directories to config
     existing = _load_dirs(vault_dir)
     if not existing:
         _save_dirs(vault_dir, directories)
 
     VaultHandler.vault_dir = vault_dir
 
+    # Pre-warm cache
+    print("Scanning...")
+    _Cache.get_html(vault_dir)
+    print(f"Found {len(_Cache.files)} HTML files (cached).\n")
+
     server = http.server.HTTPServer(("127.0.0.1", port), VaultHandler)
-    dirs = _load_dirs(vault_dir)
     print(f"HTMLVault serving at http://localhost:{port}")
-    print(f"Scanning: {', '.join(dirs)}")
     print(f"Press Ctrl+C to stop.\n")
 
     try:

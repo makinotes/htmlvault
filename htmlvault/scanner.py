@@ -57,8 +57,8 @@ def _scan_dir(
 
     dirs = []
     for entry in entries:
-        if entry.name.startswith(".") and entry.name in excludes:
-            continue
+        if entry.name.startswith("."):
+            continue  # skip all hidden dirs/files
         if entry.is_dir(follow_symlinks=False):
             if entry.name in excludes:
                 continue

@@ -24,9 +24,6 @@ dependencies = [
     "jinja2>=3.0",
 ]
 
-[project.optional-dependencies]
-thumbnails = ["playwright>=1.40"]
-
 [project.scripts]
 htmlvault = "htmlvault.cli:main"
 

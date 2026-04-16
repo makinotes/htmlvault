@@ -1,14 +1,28 @@
 """HTML type categorizer — detect slide/chart/dashboard/card/page."""
 
+import os
 import re
 from typing import Optional
+
+# Cache: filepath -> (mtime, category)
+_cache = {}
 
 
 def categorize(filepath: str) -> str:
     """Categorize an HTML file by analyzing its content.
 
+    Results are cached by filepath + mtime — only re-reads if file changed.
     Returns one of: slide, chart, dashboard, card, page
     """
+    try:
+        mtime = os.path.getmtime(filepath)
+    except OSError:
+        return "page"
+
+    cached = _cache.get(filepath)
+    if cached and cached[0] == mtime:
+        return cached[1]
+
     try:
         with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
             content = f.read(200_000)  # read first 200KB max
@@ -18,14 +32,18 @@ def categorize(filepath: str) -> str:
     lower = content.lower()
 
     if _is_slide(lower, content):
-        return "slide"
-    if _is_chart(lower):
-        return "chart"
-    if _is_dashboard(lower):
-        return "dashboard"
-    if _is_card(lower, len(content)):
-        return "card"
-    return "page"
+        result = "slide"
+    elif _is_chart(lower):
+        result = "chart"
+    elif _is_dashboard(lower):
+        result = "dashboard"
+    elif _is_card(lower, len(content)):
+        result = "card"
+    else:
+        result = "page"
+
+    _cache[filepath] = (mtime, result)
+    return result
 
 
 def _is_slide(lower: str, raw: str) -> bool:
@@ -34,6 +52,7 @@ def _is_slide(lower: str, raw: str) -> bool:
     slide_libs = [
         "swiper", "reveal.js", "reveal.min", "impress.js",
         "slidev", "remark.js", "deck.js", "shower.js",
+        "bespoke.js", "webslides",
     ]
     if any(lib in lower for lib in slide_libs):
         return True
@@ -44,6 +63,7 @@ def _is_slide(lower: str, raw: str) -> bool:
         "class=\"slide\"", "class='slide'",
         "data-slide", "slide-container",
         "prev-slide", "next-slide", "prevslide", "nextslide",
+        "slide-nav", "slide-number", "slide-content",
     ]
     if any(p in lower for p in slide_patterns):
         return True
