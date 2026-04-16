@@ -5,94 +5,107 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HTMLVault</title>
 <style>
-:root { --bg: #0a0a0a; --surface: #111; --border: #1e1e1e; --border-hover: #333; --text: #e5e5e5; --text-dim: #666; --text-muted: #444; }
+:root { --bg: #f5f5f5; --surface: #fff; --border: #d5d5d5; --border-hover: #b0b0b0; --text: #1d1d1f; --text-dim: #86868b; --text-muted: #aeaeb2; --sidebar-bg: #eaeaea; --toolbar-bg: #f5f5f5; --hover-bg: #f0f0f0; --accent: #007aff; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 13px; }
 a { color: inherit; text-decoration: none; }
 
-/* Header */
-.header { padding: 24px 40px 18px; border-bottom: 1px solid #222; display: flex; align-items: baseline; gap: 16px; }
-.header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
-.header .subtitle { font-size: 13px; color: var(--text-dim); }
+/* Header — Finder title bar style */
+.header { padding: 12px 20px 10px; background: linear-gradient(180deg, #e8e8e8 0%, #d6d6d6 100%); border-bottom: 1px solid #b8b8b8; display: flex; align-items: center; gap: 12px; }
+.header h1 { font-size: 14px; font-weight: 600; color: #333; }
+.header .subtitle { font-size: 11px; color: var(--text-dim); }
 
-/* Toolbar */
-.toolbar { display: flex; gap: 12px; align-items: center; padding: 12px 40px; border-bottom: 1px solid #1a1a1a; flex-wrap: wrap; }
-.search-box { background: #141414; border: 1px solid #2a2a2a; border-radius: 8px; padding: 7px 14px; color: var(--text); font-size: 13px; width: 260px; outline: none; transition: border-color 0.2s; }
-.search-box:focus { border-color: #444; }
-.search-box::placeholder { color: #555; }
-.filter-tags { display: flex; gap: 6px; }
-.ftag { padding: 4px 11px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #2a2a2a; background: transparent; color: #888; transition: all 0.15s; user-select: none; }
-.ftag:hover { border-color: #444; color: #ccc; }
-.ftag.active { background: #1a1a1a; border-color: #444; color: var(--text); }
-.ftag .cnt { opacity: 0.45; margin-left: 3px; }
-.toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-.stats { font-size: 12px; color: #555; }
-.btn-group { display: flex; border: 1px solid #2a2a2a; border-radius: 6px; overflow: hidden; }
-.gbtn { padding: 5px 10px; background: transparent; border: none; color: #555; cursor: pointer; font-size: 12px; transition: all 0.15s; }
-.gbtn:hover { color: #888; }
-.gbtn.active { background: #1a1a1a; color: var(--text); }
+/* Toolbar — Finder toolbar style */
+.toolbar { display: flex; gap: 10px; align-items: center; padding: 8px 20px; background: var(--toolbar-bg); border-bottom: 1px solid #d0d0d0; flex-wrap: wrap; }
+.search-box { background: #fff; border: 1px solid #c8c8c8; border-radius: 6px; padding: 5px 10px; color: var(--text); font-size: 12px; width: 220px; outline: none; transition: border-color 0.2s; }
+.search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,122,255,0.15); }
+.search-box::placeholder { color: #b0b0b0; }
+.filter-tags { display: flex; gap: 4px; }
+.ftag { padding: 3px 10px; border-radius: 5px; font-size: 11px; cursor: pointer; border: 1px solid #c8c8c8; background: #fff; color: var(--text-dim); transition: all 0.15s; user-select: none; }
+.ftag:hover { border-color: #999; color: #555; }
+.ftag.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ftag .cnt { opacity: 0.6; margin-left: 2px; }
+.toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.stats { font-size: 11px; color: var(--text-dim); }
+.btn-group { display: flex; border: 1px solid #c8c8c8; border-radius: 5px; overflow: hidden; }
+.gbtn { padding: 3px 9px; background: #fff; border: none; border-right: 1px solid #c8c8c8; color: #666; cursor: pointer; font-size: 11px; transition: all 0.1s; }
+.gbtn:last-child { border-right: none; }
+.gbtn:hover { background: #eee; }
+.gbtn.active { background: var(--accent); color: #fff; }
 
-/* Badges */
-.badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; white-space: nowrap; }
-.badge-slide { background: #1e1b4b; color: #818cf8; }
-.badge-chart { background: #052e16; color: #4ade80; }
-.badge-dashboard { background: #172554; color: #60a5fa; }
-.badge-page { background: #1c1917; color: #a8a29e; }
-.badge-card { background: #2a1708; color: #fb923c; }
+/* Badges — subtle, Finder tag style */
+.badge { font-size: 10px; padding: 1px 7px; border-radius: 3px; font-weight: 500; white-space: nowrap; }
+.badge-slide { background: #e8e0f7; color: #6b3fa0; }
+.badge-chart { background: #d4f5e0; color: #1a7a3a; }
+.badge-dashboard { background: #d6eaf8; color: #1a5f8a; }
+.badge-page { background: #e8e8e8; color: #666; }
+.badge-card { background: #fde8d0; color: #a0522d; }
 
 /* Buttons */
-.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; border: 1px solid transparent; background: transparent; cursor: pointer; color: #444; transition: all 0.15s; flex-shrink: 0; }
-.icon-btn:hover { background: #1a1a1a; border-color: #333; color: #aaa; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; border: none; background: transparent; cursor: pointer; color: #999; transition: all 0.1s; flex-shrink: 0; }
+.icon-btn:hover { background: #e0e0e0; color: #555; }
 .icon-btn svg { pointer-events: none; }
-.pin-btn.pinned { color: #eab308; }
-.pin-btn.pinned:hover { color: #ca8a04; }
+.pin-btn.pinned { color: #ff9500; }
+.pin-btn.pinned:hover { color: #e68600; }
+.del-btn:hover { color: #ff3b30; background: #fde8e8; }
 
 /* Content */
-.content { padding: 20px 40px; }
+.content { padding: 16px 20px; }
 
-/* Section headers */
-.section { margin-bottom: 24px; }
-.section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #1a1a1a; }
-.section-header h2 { font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-.section-count { font-size: 11px; color: #555; background: #1a1a1a; padding: 1px 7px; border-radius: 10px; }
+/* Section headers — Finder group style */
+.section { margin-bottom: 20px; }
+.section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
+.section-header h2 { font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.section-count { font-size: 10px; color: #999; background: #e8e8e8; padding: 0 6px; border-radius: 8px; }
 .section.no-header .section-header { display: none; }
 
-/* Grid view */
-.view-grid .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-.view-grid .item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; transition: all 0.15s; }
-.view-grid .item:hover { border-color: var(--border-hover); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
-.view-grid .item-thumb { aspect-ratio: 16/9; background: #0d0d0d; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.view-grid .item-body { padding: 10px 12px; }
-.view-grid .item-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.view-grid .item-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; cursor: pointer; }
-.view-grid .item-title:hover { color: #fff; }
-.view-grid .item-meta { display: flex; align-items: center; gap: 8px; }
-.view-grid .item-path { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-.view-grid .item-date { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+/* Grid view — Finder icon view */
+.view-grid .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.view-grid .item { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; transition: all 0.12s; }
+.view-grid .item:hover { border-color: var(--border-hover); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.view-grid .item-thumb { aspect-ratio: 16/9; background: #f0f0f0; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; border-bottom: 1px solid #e0e0e0; }
+.view-grid .item-thumb iframe { position: absolute; top: 0; left: 0; width: 1280px; height: 720px; transform: scale(0.2); transform-origin: top left; border: none; pointer-events: none; }
+.view-grid .item-thumb .icon-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; transition: opacity 0.3s; background: #f8f8f8; }
+.view-grid .item-thumb.loaded .icon-fallback { opacity: 0; }
+.view-grid .item-body { padding: 8px 10px; }
+.view-grid .item-row { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
+.view-grid .item-title { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; cursor: pointer; color: var(--text); }
+.view-grid .item-title:hover { color: var(--accent); }
+.view-grid .item-meta { display: flex; align-items: center; gap: 6px; }
+.view-grid .item-path { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.view-grid .item-date { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 
-/* List view */
-.view-list .items { display: flex; flex-direction: column; gap: 1px; }
-.view-list .item { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 6px; transition: background 0.1s; }
-.view-list .item:hover { background: #151515; }
+/* List view — Finder list view */
+.view-list .items { display: flex; flex-direction: column; }
+.view-list .item { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 4px; transition: background 0.08s; }
+.view-list .item:hover { background: var(--hover-bg); }
 .view-list .item-thumb { display: none; }
-.view-list .item-body { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; }
-.view-list .item-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 180px; max-width: 300px; }
-.view-list .item-title:hover { color: #fff; }
-.view-list .item-meta { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.view-list .item-path { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; font-family: 'SF Mono', Menlo, monospace; }
-.view-list .item-date { font-size: 12px; color: #555; white-space: nowrap; min-width: 46px; text-align: right; }
-.view-list .item-size { font-size: 12px; color: #444; white-space: nowrap; min-width: 52px; text-align: right; }
+.view-list .item-body { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+.view-list .item-title { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 160px; max-width: 280px; color: var(--text); }
+.view-list .item-title:hover { color: var(--accent); }
+.view-list .item-meta { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.view-list .item-path { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; font-family: 'SF Mono', Menlo, monospace; font-size: 10px; }
+.view-list .item-date { font-size: 11px; color: var(--text-dim); white-space: nowrap; min-width: 42px; text-align: right; }
+.view-list .item-size { font-size: 11px; color: var(--text-muted); white-space: nowrap; min-width: 48px; text-align: right; }
 .view-list .item-row { display: contents; }
 
-/* Version collapse */
-.version-toggle { font-size: 11px; color: #555; cursor: pointer; padding: 4px 10px; border-radius: 4px; margin-top: 4px; display: inline-block; }
-.version-toggle:hover { color: #888; background: #151515; }
-.version-hidden { display: none; }
-
 /* Toast */
-.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: #222; color: var(--text); padding: 10px 20px; border-radius: 8px; font-size: 13px; opacity: 0; transition: all 0.25s ease; pointer-events: none; z-index: 200; border: 1px solid #333; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: rgba(50,50,50,0.92); color: #fff; padding: 8px 18px; border-radius: 8px; font-size: 12px; opacity: 0; transition: all 0.25s ease; pointer-events: none; z-index: 200; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.empty { text-align: center; padding: 60px 40px; color: #444; font-size: 13px; }
+.empty { text-align: center; padding: 60px 40px; color: var(--text-dim); font-size: 13px; }
+
+/* Dir bar */
+.dir-bar { display: flex; align-items: center; gap: 6px; padding: 6px 20px; background: #ececec; border-bottom: 1px solid #d0d0d0; flex-wrap: wrap; font-size: 11px; }
+.dir-chip { display: flex; align-items: center; gap: 4px; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 2px 8px; color: #555; font-family: 'SF Mono', Menlo, monospace; font-size: 10px; }
+.dir-chip .dir-remove { cursor: pointer; color: #bbb; font-size: 13px; line-height: 1; margin-left: 2px; }
+.dir-chip .dir-remove:hover { color: #ff3b30; }
+.dir-add-btn { background: #fff; border: 1px dashed #bbb; border-radius: 4px; padding: 2px 8px; cursor: pointer; color: #999; font-size: 11px; transition: all 0.1s; }
+.dir-add-btn:hover { border-color: #888; color: #555; }
+
+/* Drag-drop overlay */
+.drop-overlay { display: none; position: fixed; inset: 0; background: rgba(0,122,255,0.08); border: 3px dashed var(--accent); z-index: 300; align-items: center; justify-content: center; }
+.drop-overlay.active { display: flex; }
+.drop-overlay span { font-size: 16px; color: var(--accent); font-weight: 600; background: rgba(255,255,255,0.9); padding: 16px 32px; border-radius: 12px; }
 </style>
 </head>
 <body>
@@ -101,6 +114,10 @@ a { color: inherit; text-decoration: none; }
   <h1>HTMLVault</h1>
   <div class="subtitle" id="subtitle"></div>
 </div>
+
+<div class="dir-bar" id="dir-bar"></div>
+
+<div class="drop-overlay" id="drop-overlay"><span>Drop folder to add scan directory</span></div>
 
 <div class="toolbar">
   <input type="text" class="search-box" placeholder="Search files..." id="search" oninput="render()">
@@ -133,22 +150,33 @@ let PINS = {{ pins_json }};
 const IS_SERVE = location.protocol === 'http:' || location.protocol === 'https:';
 
 const ICONS = {
-  slide: { bg: 'linear-gradient(135deg,#1e1b4b,#312e81)', svg: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>' },
-  chart: { bg: 'linear-gradient(135deg,#052e16,#064e3b)', svg: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 5-5"/></svg>' },
-  dashboard: { bg: 'linear-gradient(135deg,#172554,#1e3a5f)', svg: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="4" rx="1"/><rect x="14" y="10" width="7" height="11" rx="1"/><rect x="3" y="13" width="7" height="8" rx="1"/></svg>' },
-  card: { bg: 'linear-gradient(135deg,#2a1708,#431407)', svg: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>' },
-  page: { bg: 'linear-gradient(135deg,#1c1917,#292524)', svg: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#a8a29e" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>' },
+  slide: { bg: '#f0eef8', svg: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6b3fa0" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>' },
+  chart: { bg: '#e6f5ec', svg: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1a7a3a" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 5-5"/></svg>' },
+  dashboard: { bg: '#e0eef8', svg: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1a5f8a" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="4" rx="1"/><rect x="14" y="10" width="7" height="11" rx="1"/><rect x="3" y="13" width="7" height="8" rx="1"/></svg>' },
+  card: { bg: '#fdf0e0', svg: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#a0522d" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>' },
+  page: { bg: '#f0f0f0', svg: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>' },
 };
 const SVG_FOLDER = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>';
 const SVG_PIN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M16 2l-4 4-5-2-3 3 4 5-6 6h2l4-4 5 4 3-3-2-5 4-4-2-4z"/></svg>';
 const SVG_PIN_OUTLINE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 2l-4 4-5-2-3 3 4 5-6 6h2l4-4 5 4 3-3-2-5 4-4-2-4z"/></svg>';
+const SVG_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg>';
 
 let view = 'grid', groupBy = 'folder';
+let typeFilter = 'all';
 
 // -- Init --
 document.getElementById('subtitle').textContent = BASE + ' \u2014 ' + FILES.length + ' files \u2014 ' + SCAN_DATE;
 buildTypeFilters();
-render();
+
+// Load latest pins from server, then render
+if (IS_SERVE) {
+  fetch('/api/pins').then(r => r.json()).then(d => {
+    if (d.ok) PINS = d.pins;
+    render();
+  }).catch(() => render());
+} else {
+  render();
+}
 
 function buildTypeFilters() {
   const counts = {};
@@ -161,7 +189,6 @@ function buildTypeFilters() {
   el.innerHTML = html;
 }
 
-let typeFilter = 'all';
 function setTypeFilter(t, el) { typeFilter = t; document.querySelectorAll('.ftag').forEach(e=>e.classList.remove('active')); el.classList.add('active'); render(); }
 function setView(v, el) { view = v; document.querySelectorAll('#view-btns .gbtn').forEach(e=>e.classList.remove('active')); el.classList.add('active'); render(); }
 function setGroup(g, el) { groupBy = g; document.querySelectorAll('#group-btns .gbtn').forEach(e=>e.classList.remove('active')); el.classList.add('active'); render(); }
@@ -207,6 +234,26 @@ function togglePin(relpath, ev) {
     if (d.ok) { PINS = d.pins; render(); }
   });
 }
+function deleteFile(absPath, relpath, ev) {
+  ev.preventDefault(); ev.stopPropagation();
+  if (!IS_SERVE) { toast('Serve mode required.'); return; }
+  if (!confirm('Move ' + relpath + ' to trash?')) return;
+  fetch('/api/delete-file', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({path: absPath})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      // Remove from FILES array and re-render
+      const idx = FILES.findIndex(f => f.path === absPath);
+      if (idx !== -1) FILES.splice(idx, 1);
+      render();
+      toast('Trashed: ' + relpath);
+    } else {
+      toast('Failed: ' + (d.error || 'unknown'));
+    }
+  });
+}
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
@@ -218,6 +265,11 @@ function shortDate(ts) { const d = new Date(ts * 1000); return String(d.getMonth
 function folderOf(absPath) { return absPath.substring(0, absPath.lastIndexOf('/')); }
 
 // -- Render --
+function previewUrl(relpath) {
+  if (IS_SERVE) return '/preview/' + encodeURIComponent(relpath);
+  return 'file://' + encodeURI(BASE + '/' + relpath).replace(/#/g,'%23');
+}
+
 function renderItem(f) {
   const ic = ICONS[f.type] || ICONS.page;
   const pinCls = isPinned(f.relpath) ? 'pinned' : '';
@@ -225,15 +277,20 @@ function renderItem(f) {
   const fp = esc(f.path);
   const dp = esc(folderOf(f.path));
   const rp = esc(f.relpath);
+  const pUrl = previewUrl(f.relpath);
 
   if (view === 'grid') {
     return '<div class="item">' +
-      '<div class="item-thumb" onclick="openFile(\'' + fp + '\',event)" style="background:' + ic.bg + '">' + ic.svg + '</div>' +
+      '<div class="item-thumb" onclick="openFile(\'' + fp + '\',event)" style="background:' + ic.bg + '">' +
+        '<div class="icon-fallback">' + ic.svg + '</div>' +
+        '<iframe src="' + pUrl + '" loading="lazy" sandbox="allow-same-origin" onload="this.parentNode.classList.add(\'loaded\')"></iframe>' +
+      '</div>' +
       '<div class="item-body">' +
         '<div class="item-row">' +
           '<span class="item-title" onclick="openFile(\'' + fp + '\',event)">' + f.name + '</span>' +
           '<button class="icon-btn pin-btn ' + pinCls + '" onclick="togglePin(\'' + rp + '\',event)" title="Pin">' + pinSvg + '</button>' +
           '<button class="icon-btn" onclick="openFolder(\'' + dp + '\',event)" title="Open folder">' + SVG_FOLDER + '</button>' +
+          '<button class="icon-btn del-btn" onclick="deleteFile(\'' + fp + '\',\'' + rp + '\',event)" title="Delete">' + SVG_TRASH + '</button>' +
         '</div>' +
         '<div class="item-meta">' +
           '<span class="badge badge-' + f.type + '">' + f.type + '</span>' +
@@ -254,6 +311,7 @@ function renderItem(f) {
       '</div>' +
       '<button class="icon-btn pin-btn ' + pinCls + '" onclick="togglePin(\'' + rp + '\',event)" title="Pin">' + pinSvg + '</button>' +
       '<button class="icon-btn" onclick="openFolder(\'' + dp + '\',event)" title="Open folder">' + SVG_FOLDER + '</button>' +
+      '<button class="icon-btn del-btn" onclick="deleteFile(\'' + fp + '\',\'' + rp + '\',event)" title="Delete">' + SVG_TRASH + '</button>' +
     '</div>';
   }
 }
@@ -314,6 +372,74 @@ function renderSection(title, files) {
     '<div class="items">' + sorted.map(renderItem).join('') + '</div>' +
   '</div>';
 }
+
+// -- Dir management --
+function renderDirBar() {
+  if (!IS_SERVE) { document.getElementById('dir-bar').style.display = 'none'; return; }
+  fetch('/api/dirs').then(r => r.json()).then(d => {
+    if (!d.ok) return;
+    const bar = document.getElementById('dir-bar');
+    let html = d.dirs.map(dir =>
+      '<span class="dir-chip">' + dir +
+      (d.dirs.length > 1 ? ' <span class="dir-remove" onclick="removeDir(\'' + esc(dir) + '\')">&times;</span>' : '') +
+      '</span>'
+    ).join('');
+    html += '<span class="dir-add-btn" onclick="addDirPrompt()">+ Add folder</span>';
+    bar.innerHTML = html;
+  });
+}
+function addDirPrompt() {
+  toast('Opening folder picker...');
+  fetch('/api/add-dir', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { renderDirBar(); location.reload(); }
+    else if (d.error === 'cancelled') { /* user cancelled picker */ }
+    else toast(d.error || 'Failed');
+  });
+}
+function removeDir(dir) {
+  if (!confirm('Remove ' + dir + ' from scan?')) return;
+  fetch('/api/remove-dir', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({path: dir})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { renderDirBar(); location.reload(); }
+    else toast(d.error || 'Failed');
+  });
+}
+renderDirBar();
+
+// -- Drag & drop folders --
+let dragCount = 0;
+const overlay = document.getElementById('drop-overlay');
+document.addEventListener('dragenter', e => { e.preventDefault(); dragCount++; overlay.classList.add('active'); });
+document.addEventListener('dragleave', e => { dragCount--; if (dragCount <= 0) { dragCount = 0; overlay.classList.remove('active'); } });
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault(); dragCount = 0; overlay.classList.remove('active');
+  if (!IS_SERVE) return;
+  // Dropped items — try to get folder paths
+  const items = e.dataTransfer.items;
+  if (items) {
+    for (let i = 0; i < items.length; i++) {
+      const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+      if (entry && entry.isDirectory) {
+        // webkitGetAsEntry doesn't give full path — use file path from dataTransfer
+        const path = e.dataTransfer.files[i] ? e.dataTransfer.files[i].path : null;
+        if (path) {
+          fetch('/api/add-dir', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({path: path})
+          }).then(r => r.json()).then(d => {
+            if (d.ok) { renderDirBar(); location.reload(); }
+          });
+        }
+      }
+    }
+  }
+});
 </script>
 </body>
 </html>

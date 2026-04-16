@@ -79,21 +79,9 @@ def serve_cmd(directories, port, no_open):
         sys.exit(1)
 
     base_dir = dirs[0]
-    click.echo(f"Scanning {len(dirs)} director{'ies' if len(dirs) > 1 else 'y'}...")
-
-    files = scan(dirs)
-    click.echo(f"Found {len(files)} HTML files.")
-
-    if not files:
-        click.echo("No HTML files found.")
-        return
-
-    pins_path = _pins_file(base_dir)
-    pins = load_pins(pins_path)
-    gallery_html = generate(files, base_dir, pins=pins)
+    vault_dir = _vault_dir(base_dir)
 
     if not no_open:
-        # Open browser after a short delay
         import threading
         def _open():
             import time
@@ -101,7 +89,7 @@ def serve_cmd(directories, port, no_open):
             webbrowser.open(f"http://localhost:{port}")
         threading.Thread(target=_open, daemon=True).start()
 
-    serve(gallery_html, pins_path, base_dir, port=port)
+    serve(dirs, vault_dir, port=port)
 
 
 # Register commands with proper names
