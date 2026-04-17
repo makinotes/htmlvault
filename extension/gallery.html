@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTMLVault</title>
+<link rel="stylesheet" href="gallery.css">
+</head>
+<body>
+
+<div class="header">
+  <h1>HTMLVault</h1>
+  <div class="subtitle" id="subtitle"></div>
+</div>
+
+<div class="dir-bar" id="dir-bar"></div>
+
+<div class="toolbar" id="toolbar" style="display:none">
+  <input type="text" class="search-box" placeholder="Search files..." id="search">
+  <div class="filter-tags" id="type-filters"></div>
+  <div class="toolbar-right">
+    <div class="btn-group" id="group-btns">
+      <button class="gbtn active" data-group="folder" title="Group by folder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
+      <button class="gbtn" data-group="type" title="Group by type"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><circle cx="17" cy="17" r="4"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg></button>
+      <button class="gbtn" data-group="none" title="No grouping"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+    </div>
+    <div class="btn-group" id="view-btns">
+      <button class="gbtn active" data-view="grid" title="Grid view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+      <button class="gbtn" data-view="list" title="List view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+    </div>
+    <div class="stats" id="stats"></div>
+  </div>
+</div>
+
+<div class="content" id="content">
+  <div class="empty">
+    <p>No folders added yet.</p>
+    <button class="empty-btn" id="empty-add-btn">Add Folder</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="storage.js"></script>
+<script src="scanner.js"></script>
+<script src="categorizer.js"></script>
+<script src="gallery.js"></script>
+</body>
+</html>

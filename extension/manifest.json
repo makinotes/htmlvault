@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "HTMLVault",
+  "version": "0.1.0",
+  "description": "Browse and organize your AI-generated HTML files. Scan local directories, auto-categorize, and preview in a gallery.",
+  "permissions": ["storage"],
+  "action": {
+    "default_title": "Open HTMLVault"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}
