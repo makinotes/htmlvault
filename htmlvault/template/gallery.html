@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HTMLVault</title>
 <style>
-:root { --bg: #ffffff; --text: #333333; --text-sec: #888888; --text-ter: #aaaaaa; --line: #e5e5e5; --hover: rgba(0,0,0,0.04); --accent: #007aff; --accent-light: rgba(0,122,255,0.08); }
+:root { --bg: #ffffff; --text: #1d1d1f; --text-sec: #636366; --text-ter: #8e8e93; --line: #e5e5e5; --hover: rgba(0,0,0,0.04); --accent: #007aff; --accent-light: rgba(0,122,255,0.08); }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 13px; -webkit-font-smoothing: antialiased; }
 a { color: inherit; text-decoration: none; }
@@ -20,7 +20,7 @@ a { color: inherit; text-decoration: none; }
 .dir-bar { display: flex; align-items: center; gap: 4px; padding: 4px 16px; background: #fafafa; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .dir-chip { display: inline-flex; align-items: center; gap: 3px; background: transparent; border: none; padding: 2px 6px; border-radius: 3px; color: var(--text-sec); font-family: -apple-system, sans-serif; font-size: 11px; }
 .dir-chip:hover { background: var(--hover); }
-.dir-chip .dir-remove { cursor: pointer; color: #ccc; font-size: 12px; line-height: 1; }
+.dir-chip .dir-remove { cursor: pointer; color: #aeaeb2; font-size: 12px; line-height: 1; }
 .dir-chip .dir-remove:hover { color: #ff3b30; }
 .dir-add-btn { background: transparent; border: none; padding: 2px 6px; cursor: pointer; color: var(--text-ter); font-size: 11px; border-radius: 3px; }
 .dir-add-btn:hover { background: var(--hover); color: var(--text-sec); }
@@ -29,7 +29,7 @@ a { color: inherit; text-decoration: none; }
 .toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .search-box { background: var(--bg); border: 1px solid #d1d1d6; border-radius: 6px; padding: 5px 10px; color: var(--text); font-size: 12px; width: 200px; outline: none; transition: all 0.2s; }
 .search-box:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,122,255,0.12); }
-.search-box::placeholder { color: #c7c7cc; }
+.search-box::placeholder { color: #aeaeb2; }
 .filter-tags { display: flex; gap: 3px; }
 .ftag { padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; border: none; background: transparent; color: var(--text-sec); transition: all 0.1s; user-select: none; }
 .ftag:hover { background: var(--hover); color: var(--text); }
@@ -52,9 +52,9 @@ a { color: inherit; text-decoration: none; }
 .badge-card { background: #fff7ed; color: #c2410c; }
 
 /* Icon buttons — minimal, Finder action buttons */
-.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; border: none; background: transparent; cursor: pointer; color: #c0c0c0; transition: all 0.1s; flex-shrink: 0; opacity: 0; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; border: none; background: transparent; cursor: pointer; color: #aeaeb2; transition: all 0.1s; flex-shrink: 0; opacity: 0; }
 .item:hover .icon-btn { opacity: 1; }
-.icon-btn:hover { background: var(--hover); color: #666; }
+.icon-btn:hover { background: var(--hover); color: #48484a; }
 .icon-btn svg { pointer-events: none; }
 .pin-btn.pinned { color: #ff9500; opacity: 1; }
 .pin-btn.pinned:hover { color: #e68600; }
