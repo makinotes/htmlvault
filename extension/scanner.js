@@ -47,7 +47,7 @@ async function _scanRecursive(dirHandle, relPrefix, rootName, results, onProgres
       if (DEFAULT_EXCLUDES.has(name)) continue;
       if (name.includes("egg-info")) continue;
       subdirs.push({ name, handle: entry });
-    } else if (entry.kind === "file" && name.endsWith(".html")) {
+    } else if (entry.kind === "file" && (name.endsWith(".html") || name.endsWith(".htm"))) {
       if (SKIP_FILENAMES.has(name)) continue;
 
       let file;
@@ -61,7 +61,7 @@ async function _scanRecursive(dirHandle, relPrefix, rootName, results, onProgres
 
       const relpath = relPrefix ? relPrefix + "/" + name : name;
       const folder = relPrefix || ".";
-      const baseName = name.replace(/\.html$/i, "");
+      const baseName = name.replace(/\.html?$/i, "");
 
       results.push({
         name: baseName,

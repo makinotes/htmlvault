@@ -1,5 +1,5 @@
 // HTMLVault Extension — Gallery main logic.
-// Ported from CLI version gallery.html <script>, adapted for extension APIs.
+// Rewritten with event delegation (MV3 CSP compliant — no inline handlers).
 
 const ICONS = {
   slide: { bg: '#faf8ff', svg: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>' },
@@ -21,11 +21,12 @@ let view = 'grid';
 let groupBy = 'folder';
 let typeFilter = 'all';
 let _observer = null;
-let _blobUrls = new Map(); // cache: relpath -> blob URL
+let _previewUrls = new Map(); // cache: relpath -> blob URL (truncated, for preview only)
+let _scanning = false;          // P1-6: scan lock
+let _foldCounter = 0;           // P2-10: unique fold IDs
 
 // -- Init --
 async function init() {
-  // Load saved settings
   const settings = await getSettings();
   view = settings.view || 'grid';
   groupBy = settings.groupBy || 'folder';
@@ -48,7 +49,7 @@ async function init() {
     await scanAll(handles);
   }
 
-  // Bind events
+  // -- Event binding (all via addEventListener, no inline handlers) --
   document.getElementById('search').addEventListener('input', render);
   document.getElementById('empty-add-btn').addEventListener('click', addFolder);
 
@@ -71,55 +72,115 @@ async function init() {
       render();
     });
   });
+
+  // P0-1 fix: Event delegation for all dynamic content
+  document.getElementById('content').addEventListener('click', handleContentClick);
+}
+
+// P0-1: Central event delegation handler for all dynamic elements
+async function handleContentClick(ev) {
+  // Find the closest actionable element
+  const btn = ev.target.closest('[data-action]');
+  if (btn) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const action = btn.dataset.action;
+    const relpath = btn.dataset.relpath;
+    const foldTarget = btn.dataset.foldTarget;
+
+    if (action === 'open') await openFile(relpath);
+    else if (action === 'pin') await togglePin(relpath);
+    else if (action === 'copy') copyPath(relpath);
+    else if (action === 'hide') await hideFile(relpath);
+    else if (action === 'fold') toggleFold(foldTarget, btn);
+    else if (action === 'add-folder') addFolder();
+    return;
+  }
+
+  // Click on item-thumb or item-title opens file
+  const thumb = ev.target.closest('.item-thumb');
+  if (thumb) {
+    const item = thumb.closest('.item');
+    const rp = item && item.dataset.relpath;
+    if (rp) { ev.preventDefault(); await openFile(rp); }
+    return;
+  }
+  const title = ev.target.closest('.item-title');
+  if (title) {
+    const item = title.closest('.item');
+    const rp = item && item.dataset.relpath;
+    if (rp) { ev.preventDefault(); await openFile(rp); }
+    return;
+  }
+  // List view: click on item-body opens file
+  const body = ev.target.closest('.item-body');
+  if (body && view === 'list') {
+    const item = body.closest('.item');
+    const rp = item && item.dataset.relpath;
+    if (rp) { ev.preventDefault(); await openFile(rp); }
+  }
 }
 
 // -- Scanning --
 async function scanAll(handles) {
+  if (_scanning) return;  // P1-6: prevent concurrent scans
+  _scanning = true;
+
+  // P1-4: cleanup old preview blob URLs
+  for (const url of _previewUrls.values()) URL.revokeObjectURL(url);
+  _previewUrls.clear();
+  // P2-6: clear categorizer cache
+  _catCache.clear();
+
   const el = document.getElementById('content');
   el.innerHTML = '<div class="scanning"><div class="scanning-spinner"></div><p>Scanning directories...</p></div>';
 
-  FILES = [];
-  let validHandles = [];
+  try {
+    FILES = [];
+    let validHandles = [];
 
-  for (const record of handles) {
-    const handle = record.handle;
-    const ok = await verifyPermission(handle);
-    if (!ok) {
-      toast('Permission needed for ' + record.id + '. Click to re-authorize.');
-      continue;
+    for (const record of handles) {
+      const handle = record.handle;
+      const ok = await verifyPermission(handle);
+      if (!ok) {
+        toast('Permission needed for ' + record.id + '. Re-add the folder to authorize.');
+        continue;
+      }
+      validHandles.push(record);
+
+      const files = await scanDirectory(handle, record.id, (count) => {
+        const p = el.querySelector('p');
+        if (p) p.textContent = 'Scanning... ' + count + ' files found';
+      });
+
+      // Categorize files (P1-5: don't store _content permanently)
+      for (const f of files) {
+        const content = await readFileContent(f._fileHandle);
+        f.type = categorize(content, f.size, f.relpath + ':' + f.mtime);
+        f.size_fmt = formatSize(f.size);
+        // NOT storing f._content — read on demand for preview/open
+      }
+
+      FILES = FILES.concat(files);
     }
-    validHandles.push(record);
 
-    const files = await scanDirectory(handle, record.id, (count) => {
-      el.querySelector('p').textContent = 'Scanning... ' + count + ' files found';
-    });
+    // Filter hidden files
+    FILES = FILES.filter(f => !HIDDEN.includes(f.relpath));
+    FILES.sort((a, b) => b.mtime - a.mtime);
 
-    // Categorize files
-    for (const f of files) {
-      const content = await readFileContent(f._fileHandle);
-      f.type = categorize(content, f.size, f.relpath + ':' + f.mtime);
-      f.size_fmt = formatSize(f.size);
-      f._content = content; // keep for blob preview
+    const subtitle = validHandles.map(h => h.id).join(', ') + ' \u2014 ' + FILES.length + ' files';
+    document.getElementById('subtitle').textContent = subtitle;
+
+    if (FILES.length > 0) {
+      document.getElementById('toolbar').style.display = '';
+      buildTypeFilters();
+      render();
+    } else {
+      el.innerHTML = '<div class="empty"><p>No HTML files found in scanned directories.</p>' +
+        '<button class="empty-btn" data-action="add-folder">Add Another Folder</button></div>';
     }
-
-    FILES = FILES.concat(files);
-  }
-
-  // Filter hidden files
-  FILES = FILES.filter(f => !HIDDEN.includes(f.relpath));
-
-  // Sort by mtime desc
-  FILES.sort((a, b) => b.mtime - a.mtime);
-
-  const subtitle = validHandles.map(h => h.id).join(', ') + ' \u2014 ' + FILES.length + ' files';
-  document.getElementById('subtitle').textContent = subtitle;
-
-  if (FILES.length > 0) {
-    document.getElementById('toolbar').style.display = '';
-    buildTypeFilters();
-    render();
-  } else {
-    el.innerHTML = '<div class="empty"><p>No HTML files found in scanned directories.</p><button class="empty-btn" onclick="addFolder()">Add Another Folder</button></div>';
+  } finally {
+    _scanning = false;
   }
 }
 
@@ -129,13 +190,17 @@ async function addFolder() {
   try {
     dirHandle = await window.showDirectoryPicker({ mode: 'read' });
   } catch (e) {
-    // User cancelled
-    return;
+    return; // User cancelled
   }
 
-  const name = dirHandle.name;
+  // P1-2: handle name collision — append timestamp if duplicate
+  let name = dirHandle.name;
+  const existing = await loadDirectoryHandles();
+  if (existing.some(h => h.id === name)) {
+    name = name + '-' + Date.now();
+  }
   await saveDirectoryHandle(name, dirHandle);
-  toast('Added: ' + name);
+  toast('Added: ' + dirHandle.name);
 
   const handles = await loadDirectoryHandles();
   renderDirBar(handles);
@@ -152,38 +217,60 @@ async function removeFolder(name) {
     FILES = [];
     document.getElementById('toolbar').style.display = 'none';
     document.getElementById('subtitle').textContent = '';
-    document.getElementById('content').innerHTML = '<div class="empty"><p>No folders added yet.</p><button class="empty-btn" onclick="addFolder()">Add Folder</button></div>';
+    document.getElementById('content').innerHTML = '<div class="empty"><p>No folders added yet.</p>' +
+      '<button class="empty-btn" data-action="add-folder">Add Folder</button></div>';
   }
 }
 
 function renderDirBar(handles) {
   const bar = document.getElementById('dir-bar');
   if (!handles || handles.length === 0) {
-    bar.innerHTML = '<span class="dir-add-btn" id="dir-add-btn">+ Add folder</span>';
-    document.getElementById('dir-add-btn').addEventListener('click', addFolder);
+    bar.innerHTML = '';
+    const addBtn = document.createElement('span');
+    addBtn.className = 'dir-add-btn';
+    addBtn.textContent = '+ Add folder';
+    addBtn.addEventListener('click', addFolder);
+    bar.appendChild(addBtn);
     return;
   }
-  let html = handles.map(h =>
-    '<span class="dir-chip">' + esc(h.id) +
-    (handles.length > 1 ? ' <span class="dir-remove" data-dir="' + esc(h.id) + '">&times;</span>' : '') +
-    '</span>'
-  ).join('');
-  html += '<span class="dir-add-btn" id="dir-add-btn">+ Add folder</span>';
-  bar.innerHTML = html;
-
-  document.getElementById('dir-add-btn').addEventListener('click', addFolder);
-  bar.querySelectorAll('.dir-remove').forEach(el => {
-    el.addEventListener('click', () => {
-      if (confirm('Remove ' + el.dataset.dir + ' from scan?')) {
-        removeFolder(el.dataset.dir);
-      }
+  // Build with DOM to avoid inline handlers
+  bar.innerHTML = '';
+  handles.forEach(h => {
+    const chip = document.createElement('span');
+    chip.className = 'dir-chip';
+    chip.textContent = h.id;
+    // P2-8: always show remove button (even for single dir)
+    const rm = document.createElement('span');
+    rm.className = 'dir-remove';
+    rm.textContent = '\u00d7';
+    rm.addEventListener('click', () => {
+      if (confirm('Remove ' + h.id + ' from scan?')) removeFolder(h.id);
     });
+    chip.appendChild(rm);
+    bar.appendChild(chip);
   });
+  const addBtn = document.createElement('span');
+  addBtn.className = 'dir-add-btn';
+  addBtn.textContent = '+ Add folder';
+  addBtn.addEventListener('click', addFolder);
+  bar.appendChild(addBtn);
 }
 
 // -- Helpers --
-function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
-function shortDate(ts) { const d = new Date(ts * 1000); return String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+// P2-4: show year for old files
+function shortDate(ts) {
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  if (d.getFullYear() !== now.getFullYear()) {
+    return String(d.getFullYear()).slice(2) + '-' + mm + '-' + dd;
+  }
+  return mm + '-' + dd;
+}
+
 function isPinned(relpath) { return PINS.indexOf(relpath) !== -1; }
 
 function getFiltered() {
@@ -220,26 +307,24 @@ function buildTypeFilters() {
   });
 }
 
-// -- Actions --
-async function openFile(relpath, ev) {
-  ev.preventDefault(); ev.stopPropagation();
+// -- Actions (P1-1: always read full file for open, not truncated cache) --
+async function openFile(relpath) {
   const f = FILES.find(x => x.relpath === relpath);
   if (!f) return;
-  let url = _blobUrls.get(relpath);
-  if (!url) {
-    url = await readFileAsBlobUrl(f._fileHandle);
-    if (url) _blobUrls.set(relpath, url);
+  // Always read full file for opening (not truncated preview content)
+  const url = await readFileAsBlobUrl(f._fileHandle);
+  if (url) {
+    window.open(url, '_blank');
+    // Revoke after a delay to let the new tab load
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
-  if (url) window.open(url, '_blank');
 }
 
-function copyPath(relpath, ev) {
-  ev.preventDefault(); ev.stopPropagation();
+function copyPath(relpath) {
   navigator.clipboard.writeText(relpath).then(() => toast('Path copied'));
 }
 
-async function togglePin(relpath, ev) {
-  ev.preventDefault(); ev.stopPropagation();
+async function togglePin(relpath) {
   if (isPinned(relpath)) {
     PINS = PINS.filter(p => p !== relpath);
   } else {
@@ -249,9 +334,9 @@ async function togglePin(relpath, ev) {
   render();
 }
 
-async function hideFile(relpath, ev) {
-  ev.preventDefault(); ev.stopPropagation();
-  if (!confirm('Hide ' + relpath + '? (Can be restored in settings)')) return;
+// P1-8: honest confirm text — no mention of non-existent settings
+async function hideFile(relpath) {
+  if (!confirm('Hide "' + relpath + '" from the gallery?\n\nTo restore, clear extension data in chrome://extensions.')) return;
   HIDDEN.push(relpath);
   await setHiddenFiles(HIDDEN);
   FILES = FILES.filter(f => f.relpath !== relpath);
@@ -259,17 +344,16 @@ async function hideFile(relpath, ev) {
   toast('Hidden: ' + relpath);
 }
 
-// -- Render --
-function getBlobPreviewUrl(f) {
-  // Create blob URL from stored content for iframe preview
-  if (_blobUrls.has(f.relpath)) return _blobUrls.get(f.relpath);
-  if (f._content) {
-    const blob = new Blob([f._content], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    _blobUrls.set(f.relpath, url);
-    return url;
-  }
-  return '';
+// -- Render (P0-1: data-action attributes instead of onclick) --
+async function getPreviewUrl(f) {
+  if (_previewUrls.has(f.relpath)) return _previewUrls.get(f.relpath);
+  // Read content for preview (may be truncated, that's OK for preview)
+  const content = await readFileContent(f._fileHandle);
+  if (!content) return '';
+  const blob = new Blob([content], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  _previewUrls.set(f.relpath, url);
+  return url;
 }
 
 function renderItem(f) {
@@ -277,20 +361,19 @@ function renderItem(f) {
   const pinCls = isPinned(f.relpath) ? 'pinned' : '';
   const pinSvg = isPinned(f.relpath) ? SVG_PIN : SVG_PIN_OUTLINE;
   const rp = esc(f.relpath);
-  const pUrl = getBlobPreviewUrl(f);
 
   if (view === 'grid') {
-    return '<div class="item">' +
-      '<div class="item-thumb" onclick="openFile(\'' + rp + '\',event)" style="background:' + ic.bg + '">' +
+    return '<div class="item" data-relpath="' + rp + '">' +
+      '<div class="item-thumb" style="background:' + ic.bg + '">' +
         '<div class="icon-fallback">' + ic.svg + '</div>' +
-        (pUrl ? '<iframe data-src="' + pUrl + '" sandbox="allow-same-origin" onload="this.parentNode.classList.add(\'loaded\')"></iframe>' : '') +
+        '<iframe data-relpath="' + rp + '" sandbox loading="lazy"></iframe>' +
       '</div>' +
       '<div class="item-body">' +
         '<div class="item-row">' +
-          '<span class="item-title" onclick="openFile(\'' + rp + '\',event)">' + esc(f.name) + '</span>' +
-          '<button class="icon-btn pin-btn ' + pinCls + '" onclick="togglePin(\'' + rp + '\',event)" title="Pin">' + pinSvg + '</button>' +
-          '<button class="icon-btn" onclick="copyPath(\'' + rp + '\',event)" title="Copy path">' + SVG_COPY + '</button>' +
-          '<button class="icon-btn del-btn" onclick="hideFile(\'' + rp + '\',event)" title="Hide">' + SVG_TRASH + '</button>' +
+          '<span class="item-title">' + esc(f.name) + '</span>' +
+          '<button class="icon-btn pin-btn ' + pinCls + '" data-action="pin" data-relpath="' + rp + '" title="Pin">' + pinSvg + '</button>' +
+          '<button class="icon-btn" data-action="copy" data-relpath="' + rp + '" title="Copy path">' + SVG_COPY + '</button>' +
+          '<button class="icon-btn del-btn" data-action="hide" data-relpath="' + rp + '" title="Hide">' + SVG_TRASH + '</button>' +
         '</div>' +
         '<div class="item-meta">' +
           '<span class="badge badge-' + f.type + '">' + f.type + '</span>' +
@@ -299,8 +382,8 @@ function renderItem(f) {
         '</div>' +
       '</div></div>';
   } else {
-    return '<div class="item">' +
-      '<div class="item-body" onclick="openFile(\'' + rp + '\',event)">' +
+    return '<div class="item" data-relpath="' + rp + '">' +
+      '<div class="item-body">' +
         '<span class="badge badge-' + f.type + '">' + f.type + '</span>' +
         '<span class="item-title">' + esc(f.name) + '</span>' +
         '<span class="item-meta">' +
@@ -309,14 +392,18 @@ function renderItem(f) {
           '<span class="item-date">' + shortDate(f.mtime) + '</span>' +
         '</span>' +
       '</div>' +
-      '<button class="icon-btn pin-btn ' + pinCls + '" onclick="togglePin(\'' + rp + '\',event)" title="Pin">' + pinSvg + '</button>' +
-      '<button class="icon-btn" onclick="copyPath(\'' + rp + '\',event)" title="Copy path">' + SVG_COPY + '</button>' +
-      '<button class="icon-btn del-btn" onclick="hideFile(\'' + rp + '\',event)" title="Hide">' + SVG_TRASH + '</button>' +
+      '<button class="icon-btn pin-btn ' + pinCls + '" data-action="pin" data-relpath="' + rp + '" title="Pin">' + pinSvg + '</button>' +
+      '<button class="icon-btn" data-action="copy" data-relpath="' + rp + '" title="Copy path">' + SVG_COPY + '</button>' +
+      '<button class="icon-btn del-btn" data-action="hide" data-relpath="' + rp + '" title="Hide">' + SVG_TRASH + '</button>' +
     '</div>';
   }
 }
 
 function render() {
+  // P1-4: revoke old preview URLs before re-render
+  for (const url of _previewUrls.values()) URL.revokeObjectURL(url);
+  _previewUrls.clear();
+
   const filtered = getFiltered();
   document.getElementById('stats').textContent = filtered.length + ' files';
   const el = document.getElementById('content');
@@ -331,6 +418,7 @@ function render() {
   const recent = unpinned.filter(f => (now - f.mtime) < WEEK);
   const older = unpinned.filter(f => (now - f.mtime) >= WEEK);
 
+  _foldCounter = 0; // P2-10: reset fold counter per render
   let html = '';
   el.className = 'content view-' + view;
 
@@ -366,32 +454,43 @@ function render() {
 
   el.innerHTML = html;
 
-  // Lazy-load iframes
+  // Lazy-load iframes: read file content on intersect, set blob URL
   if (_observer) _observer.disconnect();
   _observer = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
+    entries.forEach(async (e) => {
       if (e.isIntersecting) {
         const iframe = e.target;
-        if (iframe.dataset.src && !iframe.src) {
-          iframe.src = iframe.dataset.src;
+        const relpath = iframe.dataset.relpath;
+        if (relpath && !iframe.src) {
+          const f = FILES.find(x => x.relpath === relpath);
+          if (f) {
+            const url = await getPreviewUrl(f);
+            if (url) {
+              iframe.src = url;
+              iframe.addEventListener('load', () => {
+                const thumb = iframe.closest('.item-thumb');
+                if (thumb) thumb.classList.add('loaded');
+              });
+            }
+          }
         }
         _observer.unobserve(iframe);
       }
     });
   }, { rootMargin: '200px' });
-  el.querySelectorAll('iframe[data-src]').forEach(f => _observer.observe(f));
+  el.querySelectorAll('iframe[data-relpath]').forEach(f => _observer.observe(f));
 }
 
 function renderSection(title, files) {
   const sorted = [...files].sort((a,b) => b.mtime - a.mtime);
   const folded = foldVersions(sorted);
   return '<div class="section">' +
-    '<div class="section-header"><h2>' + title + '</h2><span class="section-count">' + files.length + '</span></div>' +
+    '<div class="section-header"><h2>' + esc(title) + '</h2><span class="section-count">' + files.length + '</span></div>' +
     '<div class="items">' + folded.map(renderFoldedItem).join('') + '</div>' +
   '</div>';
 }
 
-// -- Multi-version folding (identical to CLI version) --
+// -- Multi-version folding --
 function normalizeName(name) {
   return name
     .replace(/[-_]v?\d+$/i, '')
@@ -427,10 +526,11 @@ function renderFoldedItem(cluster) {
   if (cluster.length === 1) return renderItem(cluster[0]);
   const latest = cluster[0];
   const rest = cluster.slice(1);
-  const foldId = 'fold-' + latest.relpath.replace(/[^a-zA-Z0-9]/g, '-');
+  // P2-10: use counter for unique fold IDs
+  const foldId = 'fold-' + (_foldCounter++);
   let html = '<div class="item-fold">';
   html += renderItem(latest);
-  html += '<div class="fold-toggle" onclick="toggleFold(\'' + foldId + '\',this)">' +
+  html += '<div class="fold-toggle" data-action="fold" data-fold-target="' + foldId + '">' +
     '<span class="fold-arrow">&#9654;</span> ' + rest.length + ' older version' + (rest.length > 1 ? 's' : '') + '</div>';
   html += '<div class="fold-children" id="' + foldId + '" style="display:none">';
   rest.forEach(f => { html += renderItem(f); });
@@ -443,7 +543,8 @@ function toggleFold(id, el) {
   if (!c) return;
   const show = c.style.display === 'none';
   c.style.display = show ? '' : 'none';
-  el.querySelector('.fold-arrow').style.transform = show ? 'rotate(90deg)' : '';
+  const arrow = el.querySelector('.fold-arrow');
+  if (arrow) arrow.style.transform = show ? 'rotate(90deg)' : '';
 }
 
 // -- Start --

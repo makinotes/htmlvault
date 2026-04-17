@@ -66,6 +66,9 @@ a { color: inherit; text-decoration: none; }
 .section-count { font-size: 10px; color: var(--text-ter); }
 
 /* Grid view */
+/* P2-12/P2-13: iframe sandbox has no allow-scripts — JS-dependent HTML previews
+   show CSS-only shells. This is intentional: allow-scripts + allow-same-origin
+   would give previewed content access to extension IndexedDB and chrome.storage. */
 .view-grid .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 .view-grid .item { background: var(--bg); border-radius: 8px; overflow: hidden; transition: box-shadow 0.15s; border: 1px solid transparent; }
 .view-grid .item:hover { box-shadow: 0 1px 6px rgba(0,0,0,0.1); border-color: var(--line); }
