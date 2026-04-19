@@ -41,19 +41,24 @@ def generate(
         entry["size_fmt"] = format_size(f["size"])
         enriched.append(entry)
 
-    # Render template
+    # Render template — autoescape on for HTML context, JSON payload lives in
+    # a <script type="application/json"> data island (see gallery.html).
     env = Environment(
         loader=FileSystemLoader(TEMPLATE_DIR),
-        autoescape=False,
+        autoescape=True,
     )
     template = env.get_template("gallery.html")
 
-    html = template.render(
-        base_dir=base_dir,
-        scan_date=datetime.now().strftime("%Y-%m-%d %H:%M"),
-        files_json=json.dumps(enriched, ensure_ascii=False),
-        pins_json=json.dumps(pins, ensure_ascii=False),
-    )
+    payload = {
+        "base_dir": base_dir,
+        "scan_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "files": enriched,
+        "pins": pins,
+    }
+    # Escape </ to prevent </script> breakout from filenames or paths.
+    data_json = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
+
+    html = template.render(data_json=data_json)
 
     if output_path:
         output_path = os.path.expanduser(output_path)

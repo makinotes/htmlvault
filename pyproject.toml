@@ -30,6 +30,9 @@ htmlvault = "htmlvault.cli:main"
 [project.urls]
 Homepage = "https://github.com/makinotes/htmlvault"
 
+[tool.setuptools]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 include = ["htmlvault*"]
 

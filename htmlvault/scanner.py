@@ -50,44 +50,53 @@ def _scan_dir(
     current: str, root: str, excludes: set, results: list
 ) -> None:
     """Recursively scan a directory."""
-    try:
-        entries = os.scandir(current)
-    except PermissionError:
-        return
-
     dirs = []
-    for entry in entries:
-        if entry.name.startswith("."):
-            continue  # skip all hidden dirs/files
-        if entry.is_dir(follow_symlinks=False):
-            if entry.name in excludes:
-                continue
-            # Skip any directory containing common exclude patterns
-            if any(ex in entry.name for ex in ("egg-info",)):
-                continue
-            dirs.append(entry.path)
-        elif entry.is_file() and entry.name.endswith(".html"):
-            if entry.name in SKIP_FILENAMES:
-                continue
-            try:
-                stat = entry.stat()
-            except OSError:
-                continue
-            if stat.st_size < MIN_FILE_SIZE:
-                continue
+    try:
+        # Use as context manager so the directory handle is released even if
+        # iteration raises.
+        with os.scandir(current) as entries:
+            for entry in entries:
+                if entry.name.startswith("."):
+                    continue  # skip all hidden dirs/files
+                try:
+                    is_dir = entry.is_dir(follow_symlinks=False)
+                except OSError:
+                    continue
+                if is_dir:
+                    if entry.name in excludes:
+                        continue
+                    if any(ex in entry.name for ex in ("egg-info",)):
+                        continue
+                    dirs.append(entry.path)
+                    continue
+                try:
+                    is_file = entry.is_file()
+                except OSError:
+                    continue
+                if is_file and entry.name.endswith(".html"):
+                    if entry.name in SKIP_FILENAMES:
+                        continue
+                    try:
+                        stat = entry.stat()
+                    except OSError:
+                        continue
+                    if stat.st_size < MIN_FILE_SIZE:
+                        continue
 
-            relpath = os.path.relpath(entry.path, root)
-            folder = os.path.dirname(relpath)
-            name = os.path.splitext(entry.name)[0]
+                    relpath = os.path.relpath(entry.path, root)
+                    folder = os.path.dirname(relpath)
+                    name = os.path.splitext(entry.name)[0]
 
-            results.append({
-                "path": entry.path,
-                "relpath": relpath,
-                "name": name,
-                "folder": folder if folder else ".",
-                "mtime": stat.st_mtime,
-                "size": stat.st_size,
-            })
+                    results.append({
+                        "path": entry.path,
+                        "relpath": relpath,
+                        "name": name,
+                        "folder": folder if folder else ".",
+                        "mtime": stat.st_mtime,
+                        "size": stat.st_size,
+                    })
+    except (PermissionError, OSError):
+        return
 
     for d in sorted(dirs):
         _scan_dir(d, root, excludes, results)

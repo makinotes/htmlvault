@@ -3,7 +3,10 @@
 import http.server
 import json
 import os
+import shutil
 import subprocess
+import sys
+import threading
 import time
 import urllib.parse
 from typing import List, Optional
@@ -12,47 +15,60 @@ from htmlvault.scanner import scan
 from htmlvault.generator import generate
 
 
+def _open_native(target: str) -> bool:
+    """Platform-aware 'reveal in file manager / open with default app'.
+
+    Returns True if a command was launched. Quietly no-ops on unknown platforms.
+    """
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", target])
+        elif sys.platform.startswith("linux"):
+            subprocess.Popen(["xdg-open", target])
+        elif sys.platform == "win32":
+            os.startfile(target)  # type: ignore[attr-defined]
+        else:
+            return False
+        return True
+    except (OSError, FileNotFoundError):
+        return False
+
+
 class _Cache:
     """Gallery cache — avoid re-scanning on every page load."""
     html = ""          # rendered gallery HTML
     files = []         # scan results
     _dirty = True      # needs re-scan
     _last_scan = 0.0   # timestamp of last scan
+    _lock = threading.Lock()
 
     @classmethod
     def invalidate(cls):
-        cls._dirty = True
+        with cls._lock:
+            cls._dirty = True
 
     @classmethod
     def get_html(cls, vault_dir: str) -> str:
         # Auto-invalidate after 30s so new files eventually appear
-        if time.time() - cls._last_scan > 30:
-            cls._dirty = True
+        with cls._lock:
+            if time.time() - cls._last_scan > 30:
+                cls._dirty = True
+            if not cls._dirty and cls.html:
+                return cls.html
 
-        if not cls._dirty and cls.html:
+            dirs = _load_dirs(vault_dir)
+            pins = _load_pins(_pins_path(vault_dir))
+            cls.files = scan(dirs)
+            cls.html = generate(cls.files, dirs[0] if dirs else ".", pins=pins)
+            cls._dirty = False
+            cls._last_scan = time.time()
             return cls.html
-
-        dirs = _load_dirs(vault_dir)
-        pins = _load_pins(_pins_path(vault_dir))
-        cls.files = scan(dirs)
-        cls.html = generate(cls.files, dirs[0] if dirs else ".", pins=pins)
-        cls._dirty = False
-        cls._last_scan = time.time()
-        return cls.html
 
 
 class VaultHandler(http.server.BaseHTTPRequestHandler):
     """HTTP handler with API endpoints."""
 
     vault_dir = ""
-
-    def do_OPTIONS(self):
-        """Handle CORS preflight."""
-        self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -66,20 +82,30 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
 
         if path == "/api/open-file":
             filepath = qs.get("path", [""])[0]
-            if filepath and os.path.isfile(filepath):
-                subprocess.Popen(["open", filepath])
-                self._send_json({"ok": True})
-            else:
+            if not filepath or not os.path.isfile(filepath):
                 self._send_json({"ok": False, "error": "file not found"}, 400)
+                return
+            if not _path_within_scan_dirs(filepath, _load_dirs(self.vault_dir)):
+                self._send_json({"ok": False, "error": "not in scan dirs"}, 403)
+                return
+            if not _open_native(filepath):
+                self._send_json({"ok": False, "error": "open not supported on this platform"}, 500)
+                return
+            self._send_json({"ok": True})
             return
 
         if path == "/api/open-folder":
             folder = qs.get("path", [""])[0]
-            if folder and os.path.isdir(folder):
-                subprocess.Popen(["open", folder])
-                self._send_json({"ok": True})
-            else:
+            if not folder or not os.path.isdir(folder):
                 self._send_json({"ok": False, "error": "dir not found"}, 400)
+                return
+            if not _path_within_scan_dirs(folder, _load_dirs(self.vault_dir)):
+                self._send_json({"ok": False, "error": "not in scan dirs"}, 403)
+                return
+            if not _open_native(folder):
+                self._send_json({"ok": False, "error": "open not supported on this platform"}, 500)
+                return
+            self._send_json({"ok": True})
             return
 
         if path == "/api/pins":
@@ -98,8 +124,7 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
             dirs = _load_dirs(self.vault_dir)
             for d in dirs:
                 filepath = os.path.join(d, relpath)
-                # Security: must be within a scan dir
-                if not os.path.abspath(filepath).startswith(os.path.abspath(d)):
+                if not _path_within_scan_dirs(filepath, [d]):
                     continue
                 if os.path.isfile(filepath):
                     try:
@@ -135,10 +160,14 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
                 return
 
             dirs = _load_dirs(self.vault_dir)
+            if not _path_within_scan_dirs(abs_path, dirs):
+                self._send_json({"ok": False, "error": "not in scan dirs"}, 403)
+                return
             parent = None
             for d in dirs:
-                if abs_path.startswith(os.path.abspath(d)):
-                    parent = os.path.abspath(d)
+                abs_d = os.path.abspath(os.path.realpath(d))
+                if (abs_path + os.sep).startswith(abs_d.rstrip(os.sep) + os.sep):
+                    parent = abs_d
                     break
             if not parent:
                 self._send_json({"ok": False, "error": "not in scan dirs"}, 403)
@@ -150,10 +179,11 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
                 rel = os.path.relpath(abs_path, parent)
                 dest = os.path.join(trash_dir, rel)
                 os.makedirs(os.path.dirname(dest), exist_ok=True)
-                os.rename(abs_path, dest)
+                # shutil.move falls back to copy+unlink across filesystems.
+                shutil.move(abs_path, dest)
                 _Cache.invalidate()
                 self._send_json({"ok": True, "trashed": filepath})
-            except OSError as e:
+            except (OSError, shutil.Error) as e:
                 self._send_json({"ok": False, "error": str(e)}, 500)
             return
 
@@ -200,16 +230,22 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == "/api/remove-dir":
-            dir_path = body.get("path", "")
-            dir_path = os.path.abspath(dir_path)
+            raw = body.get("path", "")
+            if not raw:
+                self._send_json({"ok": False, "error": "missing path"}, 400)
+                return
+            dir_path = os.path.abspath(raw)
             dirs = _load_dirs(self.vault_dir)
-            dirs = [d for d in dirs if os.path.abspath(d) != dir_path]
-            if not dirs:
+            new_dirs = [d for d in dirs if os.path.abspath(d) != dir_path]
+            if new_dirs == dirs:
+                self._send_json({"ok": False, "error": "path not in scan dirs"}, 404)
+                return
+            if not new_dirs:
                 self._send_json({"ok": False, "error": "need at least one dir"}, 400)
                 return
-            _save_dirs(self.vault_dir, dirs)
+            _save_dirs(self.vault_dir, new_dirs)
             _Cache.invalidate()
-            self._send_json({"ok": True, "dirs": dirs})
+            self._send_json({"ok": True, "dirs": new_dirs})
             return
 
         self.send_error(404)
@@ -230,10 +266,13 @@ class VaultHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def _send_json(self, obj: dict, code: int = 200):
+        # No CORS header: gallery and API share the localhost:port origin, so the
+        # same-origin policy already allows the gallery fetch. Omitting
+        # Access-Control-Allow-Origin means cross-origin attackers cannot make
+        # authenticated POST/DELETE calls from their own pages.
         data = json.dumps(obj).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -265,7 +304,14 @@ def _guess_content_type(filepath: str) -> str:
     return _CONTENT_TYPES.get(ext, "application/octet-stream")
 
 def _pick_folder() -> str:
-    """Open macOS native folder picker dialog."""
+    """Open a native folder picker if available, else return empty.
+
+    macOS: uses osascript (AppleScript).
+    Linux/Windows: no picker — callers should supply the path via the request
+    body instead. The frontend's drag-and-drop and typed-path flows both do this.
+    """
+    if sys.platform != "darwin":
+        return ""
     try:
         result = subprocess.run(
             ["osascript", "-e",
@@ -278,6 +324,27 @@ def _pick_folder() -> str:
     except (subprocess.TimeoutExpired, OSError):
         pass
     return ""
+
+
+def _path_within_scan_dirs(target: str, scan_dirs: List[str]) -> bool:
+    """Check that `target` is inside one of the configured scan directories.
+
+    Resolves both sides to absolute paths with trailing sep to avoid
+    `/foo/bar` matching `/foo/bar-evil` as a prefix.
+    """
+    try:
+        abs_target = os.path.abspath(os.path.realpath(target))
+    except (OSError, ValueError):
+        return False
+    for d in scan_dirs:
+        try:
+            abs_d = os.path.abspath(os.path.realpath(d))
+        except (OSError, ValueError):
+            continue
+        abs_d = abs_d.rstrip(os.sep) + os.sep
+        if (abs_target + os.sep).startswith(abs_d):
+            return True
+    return False
 
 def _pins_path(vault_dir: str) -> str:
     return os.path.join(vault_dir, "pins.json")

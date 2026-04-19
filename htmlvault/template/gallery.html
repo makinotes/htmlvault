@@ -131,17 +131,17 @@ a { color: inherit; text-decoration: none; }
 <div class="drop-overlay" id="drop-overlay"><span>Drop folder to add scan directory</span></div>
 
 <div class="toolbar">
-  <input type="text" class="search-box" placeholder="Search files..." id="search" oninput="render()">
+  <input type="text" class="search-box" placeholder="Search files..." id="search">
   <div class="filter-tags" id="type-filters"></div>
   <div class="toolbar-right">
     <div class="btn-group" id="group-btns">
-      <button class="gbtn active" onclick="setGroup('folder',this)" title="Group by folder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
-      <button class="gbtn" onclick="setGroup('type',this)" title="Group by type"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><circle cx="17" cy="17" r="4"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg></button>
-      <button class="gbtn" onclick="setGroup('none',this)" title="No grouping"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <button class="gbtn active" data-group="folder" title="Group by folder"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
+      <button class="gbtn" data-group="type" title="Group by type"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><circle cx="17" cy="17" r="4"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg></button>
+      <button class="gbtn" data-group="none" title="No grouping"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     </div>
     <div class="btn-group" id="view-btns">
-      <button class="gbtn active" onclick="setView('grid',this)" title="Grid view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
-      <button class="gbtn" onclick="setView('list',this)" title="List view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+      <button class="gbtn active" data-view="grid" title="Grid view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button>
+      <button class="gbtn" data-view="list" title="List view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
     </div>
     <div class="stats" id="stats"></div>
   </div>
@@ -150,12 +150,14 @@ a { color: inherit; text-decoration: none; }
 <div class="content" id="content"></div>
 <div class="toast" id="toast"></div>
 
+<script type="application/json" id="vault-data">{{ data_json | safe }}</script>
 <script>
-// --- Data injected by generator.py ---
-const BASE = "{{ base_dir }}";
-const SCAN_DATE = "{{ scan_date }}";
-const FILES = {{ files_json }};
-let PINS = {{ pins_json }};
+// --- Data island: parsed from <script type="application/json"> ---
+const _VAULT_DATA = JSON.parse(document.getElementById('vault-data').textContent);
+const BASE = _VAULT_DATA.base_dir;
+const SCAN_DATE = _VAULT_DATA.scan_date;
+const FILES = _VAULT_DATA.files;
+let PINS = _VAULT_DATA.pins;
 // --- End data ---
 
 const IS_SERVE = location.protocol === 'http:' || location.protocol === 'https:';
@@ -194,16 +196,48 @@ function buildTypeFilters() {
   const counts = {};
   FILES.forEach(f => { counts[f.type] = (counts[f.type] || 0) + 1; });
   const el = document.getElementById('type-filters');
-  let html = '<div class="ftag active" data-f="all" onclick="setTypeFilter(\'all\',this)">All<span class="cnt">' + FILES.length + '</span></div>';
+  el.innerHTML = '';
+  const mkTag = (key, label, count, active) => {
+    const t = document.createElement('div');
+    t.className = 'ftag' + (active ? ' active' : '');
+    t.dataset.f = key;
+    t.textContent = label;
+    const cnt = document.createElement('span');
+    cnt.className = 'cnt';
+    cnt.textContent = count;
+    t.appendChild(cnt);
+    return t;
+  };
+  el.appendChild(mkTag('all', 'All', FILES.length, true));
   ['slide','chart','dashboard','card','page'].forEach(t => {
-    if (counts[t]) html += '<div class="ftag" data-f="'+t+'" onclick="setTypeFilter(\''+t+'\',this)">'+t.charAt(0).toUpperCase()+t.slice(1)+'s<span class="cnt">'+counts[t]+'</span></div>';
+    if (counts[t]) el.appendChild(mkTag(t, t.charAt(0).toUpperCase() + t.slice(1) + 's', counts[t], false));
   });
-  el.innerHTML = html;
+  el.addEventListener('click', (e) => {
+    const tag = e.target.closest('.ftag');
+    if (!tag) return;
+    typeFilter = tag.dataset.f;
+    el.querySelectorAll('.ftag').forEach(x => x.classList.remove('active'));
+    tag.classList.add('active');
+    render();
+  });
 }
 
-function setTypeFilter(t, el) { typeFilter = t; document.querySelectorAll('.ftag').forEach(e=>e.classList.remove('active')); el.classList.add('active'); render(); }
-function setView(v, el) { view = v; document.querySelectorAll('#view-btns .gbtn').forEach(e=>e.classList.remove('active')); el.classList.add('active'); render(); }
-function setGroup(g, el) { groupBy = g; document.querySelectorAll('#group-btns .gbtn').forEach(e=>e.classList.remove('active')); el.classList.add('active'); render(); }
+document.getElementById('view-btns').addEventListener('click', (e) => {
+  const btn = e.target.closest('.gbtn');
+  if (!btn) return;
+  view = btn.dataset.view;
+  document.querySelectorAll('#view-btns .gbtn').forEach(x => x.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+});
+document.getElementById('group-btns').addEventListener('click', (e) => {
+  const btn = e.target.closest('.gbtn');
+  if (!btn) return;
+  groupBy = btn.dataset.group;
+  document.querySelectorAll('#group-btns .gbtn').forEach(x => x.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+});
 
 function isPinned(relpath) { return PINS.indexOf(relpath) !== -1; }
 
@@ -216,25 +250,22 @@ function getFiltered() {
   });
 }
 
-// -- Actions --
-function openFile(absPath, ev) {
-  ev.preventDefault(); ev.stopPropagation();
+// -- Actions (no longer take event; delegation handles stopping propagation) --
+function openFile(absPath) {
   if (IS_SERVE) {
     fetch('/api/open-file?path=' + encodeURIComponent(absPath));
   } else {
     window.open('file://' + encodeURI(absPath).replace(/#/g,'%23'), '_blank');
   }
 }
-function openFolder(absPath, ev) {
-  ev.preventDefault(); ev.stopPropagation();
+function openFolder(absPath) {
   if (IS_SERVE) {
     fetch('/api/open-folder?path=' + encodeURIComponent(absPath));
   } else {
     toast('Serve mode required for Finder. Run: htmlvault serve');
   }
 }
-function togglePin(relpath, ev) {
-  ev.preventDefault(); ev.stopPropagation();
+function togglePin(relpath) {
   if (!IS_SERVE) { toast('Serve mode required for pinning.'); return; }
   const pinned = isPinned(relpath);
   const endpoint = pinned ? '/api/unpin' : '/api/pin';
@@ -246,8 +277,7 @@ function togglePin(relpath, ev) {
     if (d.ok) { PINS = d.pins; render(); }
   });
 }
-function deleteFile(absPath, relpath, ev) {
-  ev.preventDefault(); ev.stopPropagation();
+function deleteFile(absPath, relpath) {
   if (!IS_SERVE) { toast('Serve mode required.'); return; }
   if (!confirm('Move ' + relpath + ' to trash?')) return;
   fetch('/api/delete-file', {
@@ -256,7 +286,6 @@ function deleteFile(absPath, relpath, ev) {
     body: JSON.stringify({path: absPath})
   }).then(r => r.json()).then(d => {
     if (d.ok) {
-      // Remove from FILES array and re-render
       const idx = FILES.findIndex(f => f.path === absPath);
       if (idx !== -1) FILES.splice(idx, 1);
       render();
@@ -272,8 +301,16 @@ function toast(msg) {
   clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-function esc(s) { return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
-function h(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+// HTML-escape for safe insertion into HTML attributes or text. Handles all
+// XSS-relevant chars: & < > " '
+function h(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 function shortDate(ts) { const d = new Date(ts * 1000); return String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 function folderOf(absPath) { return absPath.substring(0, absPath.lastIndexOf('/')); }
 
@@ -285,46 +322,47 @@ function previewUrl(relpath) {
 
 function renderItem(f) {
   const ic = ICONS[f.type] || ICONS.page;
-  const pinCls = isPinned(f.relpath) ? 'pinned' : '';
-  const pinSvg = isPinned(f.relpath) ? SVG_PIN : SVG_PIN_OUTLINE;
-  const fp = esc(f.path);
-  const dp = esc(folderOf(f.path));
-  const rp = esc(f.relpath);
+  const pinned = isPinned(f.relpath);
+  const pinCls = pinned ? 'pinned' : '';
+  const pinSvg = pinned ? SVG_PIN : SVG_PIN_OUTLINE;
   const pUrl = previewUrl(f.relpath);
+  // Item carries path/relpath/folder; buttons only declare data-action.
+  const itemAttrs = 'data-path="' + h(f.path) + '" data-relpath="' + h(f.relpath) + '" data-folder="' + h(folderOf(f.path)) + '"';
+  const badgeType = h(f.type);
 
   if (view === 'grid') {
-    return '<div class="item">' +
-      '<div class="item-thumb" onclick="openFile(\'' + fp + '\',event)" style="background:' + ic.bg + '">' +
+    return '<div class="item" ' + itemAttrs + '>' +
+      '<div class="item-thumb" data-action="open-file" style="background:' + ic.bg + '">' +
         '<div class="icon-fallback">' + ic.svg + '</div>' +
-        '<iframe data-src="' + pUrl + '" sandbox="allow-same-origin" onload="this.parentNode.classList.add(\'loaded\')"></iframe>' +
+        '<iframe data-src="' + h(pUrl) + '" sandbox="allow-scripts"></iframe>' +
       '</div>' +
       '<div class="item-body">' +
         '<div class="item-row">' +
-          '<span class="item-title" onclick="openFile(\'' + fp + '\',event)">' + h(f.name) + '</span>' +
-          '<button class="icon-btn pin-btn ' + pinCls + '" onclick="togglePin(\'' + rp + '\',event)" title="Pin">' + pinSvg + '</button>' +
-          '<button class="icon-btn" onclick="openFolder(\'' + dp + '\',event)" title="Open folder">' + SVG_FOLDER + '</button>' +
-          '<button class="icon-btn del-btn" onclick="deleteFile(\'' + fp + '\',\'' + rp + '\',event)" title="Delete">' + SVG_TRASH + '</button>' +
+          '<span class="item-title" data-action="open-file">' + h(f.name) + '</span>' +
+          '<button class="icon-btn pin-btn ' + pinCls + '" data-action="toggle-pin" title="Pin">' + pinSvg + '</button>' +
+          '<button class="icon-btn" data-action="open-folder" title="Open folder">' + SVG_FOLDER + '</button>' +
+          '<button class="icon-btn del-btn" data-action="delete" title="Delete">' + SVG_TRASH + '</button>' +
         '</div>' +
         '<div class="item-meta">' +
-          '<span class="badge badge-' + f.type + '">' + f.type + '</span>' +
+          '<span class="badge badge-' + badgeType + '">' + badgeType + '</span>' +
           '<span class="item-path">' + h(f.relpath) + '</span>' +
           '<span class="item-date">' + shortDate(f.mtime) + '</span>' +
         '</div>' +
       '</div></div>';
   } else {
-    return '<div class="item">' +
-      '<div class="item-body" onclick="openFile(\'' + fp + '\',event)">' +
-        '<span class="badge badge-' + f.type + '">' + f.type + '</span>' +
+    return '<div class="item" ' + itemAttrs + '>' +
+      '<div class="item-body" data-action="open-file">' +
+        '<span class="badge badge-' + badgeType + '">' + badgeType + '</span>' +
         '<span class="item-title">' + h(f.name) + '</span>' +
         '<span class="item-meta">' +
           '<span class="item-path">' + h(f.relpath) + '</span>' +
-          '<span class="item-size">' + f.size_fmt + '</span>' +
+          '<span class="item-size">' + h(f.size_fmt) + '</span>' +
           '<span class="item-date">' + shortDate(f.mtime) + '</span>' +
         '</span>' +
       '</div>' +
-      '<button class="icon-btn pin-btn ' + pinCls + '" onclick="togglePin(\'' + rp + '\',event)" title="Pin">' + pinSvg + '</button>' +
-      '<button class="icon-btn" onclick="openFolder(\'' + dp + '\',event)" title="Open folder">' + SVG_FOLDER + '</button>' +
-      '<button class="icon-btn del-btn" onclick="deleteFile(\'' + fp + '\',\'' + rp + '\',event)" title="Delete">' + SVG_TRASH + '</button>' +
+      '<button class="icon-btn pin-btn ' + pinCls + '" data-action="toggle-pin" title="Pin">' + pinSvg + '</button>' +
+      '<button class="icon-btn" data-action="open-folder" title="Open folder">' + SVG_FOLDER + '</button>' +
+      '<button class="icon-btn del-btn" data-action="delete" title="Delete">' + SVG_TRASH + '</button>' +
     '</div>';
   }
 }
@@ -392,6 +430,9 @@ function render() {
       if (e.isIntersecting) {
         const iframe = e.target;
         if (iframe.dataset.src && !iframe.src) {
+          iframe.addEventListener('load', () => {
+            iframe.parentNode && iframe.parentNode.classList.add('loaded');
+          }, { once: true });
           iframe.src = iframe.dataset.src;
         }
         _observer.unobserve(iframe);
@@ -399,6 +440,39 @@ function render() {
     });
   }, { rootMargin: '200px' });
   el.querySelectorAll('iframe[data-src]').forEach(f => _observer.observe(f));
+}
+
+// Event delegation for item actions — avoids inline onclick and XSS via filenames.
+document.getElementById('content').addEventListener('click', (e) => {
+  const actionEl = e.target.closest('[data-action]');
+  if (!actionEl) {
+    const fold = e.target.closest('.fold-toggle');
+    if (fold) handleFoldToggle(fold);
+    return;
+  }
+  const item = actionEl.closest('.item');
+  if (!item) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const action = actionEl.dataset.action;
+  const path = item.dataset.path;
+  const relpath = item.dataset.relpath;
+  const folder = item.dataset.folder;
+  if (action === 'open-file') openFile(path);
+  else if (action === 'open-folder') openFolder(folder);
+  else if (action === 'toggle-pin') togglePin(relpath);
+  else if (action === 'delete') deleteFile(path, relpath);
+});
+
+function handleFoldToggle(el) {
+  const id = el.dataset.target;
+  if (!id) return;
+  const c = document.getElementById(id);
+  if (!c) return;
+  const show = c.style.display === 'none';
+  c.style.display = show ? '' : 'none';
+  const arrow = el.querySelector('.fold-arrow');
+  if (arrow) arrow.style.transform = show ? 'rotate(90deg)' : '';
 }
 
 function renderSection(title, files) {
@@ -447,26 +521,17 @@ function foldVersions(files) {
 
 function renderFoldedItem(cluster) {
   if (cluster.length === 1) return renderItem(cluster[0]);
-  // Latest is first (already sorted by mtime desc)
   const latest = cluster[0];
   const rest = cluster.slice(1);
   const foldId = 'fold-' + latest.relpath.replace(/[^a-zA-Z0-9]/g, '-');
   let html = '<div class="item-fold">';
   html += renderItem(latest);
-  html += '<div class="fold-toggle" onclick="toggleFold(\'' + foldId + '\',this)">' +
+  html += '<div class="fold-toggle" data-target="' + h(foldId) + '">' +
     '<span class="fold-arrow">&#9654;</span> ' + rest.length + ' older version' + (rest.length > 1 ? 's' : '') + '</div>';
-  html += '<div class="fold-children" id="' + foldId + '" style="display:none">';
+  html += '<div class="fold-children" id="' + h(foldId) + '" style="display:none">';
   rest.forEach(f => { html += renderItem(f); });
   html += '</div></div>';
   return html;
-}
-
-function toggleFold(id, el) {
-  const c = document.getElementById(id);
-  if (!c) return;
-  const show = c.style.display === 'none';
-  c.style.display = show ? '' : 'none';
-  el.querySelector('.fold-arrow').style.transform = show ? 'rotate(90deg)' : '';
 }
 
 // -- Dir management --
@@ -476,11 +541,11 @@ function renderDirBar() {
     if (!d.ok) return;
     const bar = document.getElementById('dir-bar');
     let html = d.dirs.map(dir =>
-      '<span class="dir-chip">' + dir +
-      (d.dirs.length > 1 ? ' <span class="dir-remove" onclick="removeDir(\'' + esc(dir) + '\')">&times;</span>' : '') +
+      '<span class="dir-chip">' + h(dir) +
+      (d.dirs.length > 1 ? ' <span class="dir-remove" data-dir="' + h(dir) + '">&times;</span>' : '') +
       '</span>'
     ).join('');
-    html += '<span class="dir-add-btn" onclick="addDirPrompt()">+ Add folder</span>';
+    html += '<span class="dir-add-btn" data-add-dir>+ Add folder</span>';
     bar.innerHTML = html;
   });
 }
@@ -505,6 +570,12 @@ function removeDir(dir) {
     else toast(d.error || 'Failed');
   });
 }
+document.getElementById('dir-bar').addEventListener('click', (e) => {
+  if (e.target.closest('[data-add-dir]')) { addDirPrompt(); return; }
+  const rm = e.target.closest('.dir-remove');
+  if (rm && rm.dataset.dir) removeDir(rm.dataset.dir);
+});
+document.getElementById('search').addEventListener('input', render);
 renderDirBar();
 
 // -- Drag & drop folders --

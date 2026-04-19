@@ -30,16 +30,9 @@ async function scanDirectory(dirHandle, dirName, onProgress) {
 }
 
 async function _scanRecursive(dirHandle, relPrefix, rootName, results, onProgress) {
-  let entries;
-  try {
-    entries = dirHandle.entries();
-  } catch (e) {
-    return; // Permission denied or handle invalid
-  }
-
   const subdirs = [];
-
-  for await (const [name, entry] of entries) {
+  try {
+    for await (const [name, entry] of dirHandle.entries()) {
     // Skip hidden entries (dot files/dirs)
     if (name.startsWith(".")) continue;
 
@@ -75,6 +68,10 @@ async function _scanRecursive(dirHandle, relPrefix, rootName, results, onProgres
 
       if (onProgress) onProgress(results.length);
     }
+    }
+  } catch (e) {
+    // Permission revoked mid-traversal or handle invalid — return what we have.
+    return;
   }
 
   // Recurse into subdirectories (sorted for deterministic order)

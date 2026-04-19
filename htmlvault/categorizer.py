@@ -2,10 +2,13 @@
 
 import os
 import re
+from collections import OrderedDict
 from typing import Optional
 
-# Cache: filepath -> (mtime, category)
-_cache = {}
+# Bounded LRU cache: filepath -> (mtime, category). Cap avoids unbounded growth
+# in long-running serve sessions over directories with rotating outputs.
+_CACHE_MAX = 1000
+_cache: "OrderedDict[str, tuple]" = OrderedDict()
 
 
 def categorize(filepath: str) -> str:
@@ -21,6 +24,7 @@ def categorize(filepath: str) -> str:
 
     cached = _cache.get(filepath)
     if cached and cached[0] == mtime:
+        _cache.move_to_end(filepath)
         return cached[1]
 
     try:
@@ -43,6 +47,9 @@ def categorize(filepath: str) -> str:
         result = "page"
 
     _cache[filepath] = (mtime, result)
+    _cache.move_to_end(filepath)
+    if len(_cache) > _CACHE_MAX:
+        _cache.popitem(last=False)
     return result
 
 
