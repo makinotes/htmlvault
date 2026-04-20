@@ -25,19 +25,36 @@ If you open HTMLVault in Safari or Firefox, the gallery shows a clear "unsupport
 
 ## Install
 
-HTMLVault is a Chrome extension. Two ways to install:
+HTMLVault is not on the Chrome Web Store. You install it from a GitHub release zip via Chrome's "Load unpacked" feature. Takes about a minute.
 
-### Option 1 — Chrome Web Store (recommended once published)
+> ⚠️ **You'll see a yellow "Developer mode extensions" banner in Chrome**
+> every time you launch. That's Chrome's standard warning for extensions
+> installed outside the Web Store — it's not a bug and it's not dangerous.
+> Click the **×** to dismiss. **Do not** click "Disable" or HTMLVault
+> will stop working.
 
-Search **HTMLVault** in the Chrome Web Store and click **Add to Chrome**.
+### Step-by-step
 
-### Option 2 — Load unpacked (developer mode)
+1. Go to the [Releases page](https://github.com/makinotes/htmlvault/releases) and download the latest `htmlvault-<version>.zip`.
+2. **Unzip it** into a folder you won't delete (e.g. `~/Applications/htmlvault/` on macOS, `C:\Tools\htmlvault\` on Windows). Keep the whole folder — moving or deleting it later will break the extension.
+3. Open `chrome://extensions` in Chrome (or Edge/Brave/Arc — same URL works).
+4. Turn on the **Developer mode** toggle in the top-right corner.
+5. Click **Load unpacked** and select the folder you unzipped in step 2 (pick the folder, not the zip).
+6. HTMLVault appears in the extensions list. Click the puzzle icon in the Chrome toolbar and **pin** HTMLVault so its icon stays visible.
 
-1. Clone or download this repo.
-2. Open `chrome://extensions` in Chrome.
-3. Toggle **Developer mode** (top right).
-4. Click **Load unpacked** and select the `extension/` folder in this repo.
-5. Pin HTMLVault to the toolbar for easy access.
+Done. Click the icon any time to open the gallery.
+
+### Updating
+
+1. Download the new `htmlvault-<version>.zip` from Releases.
+2. Unzip it into the **same folder** as before, overwriting the old files.
+3. Go back to `chrome://extensions` and click the **🔄 reload icon** on the HTMLVault card.
+
+Your pinned files, hidden files, and added folders are preserved across updates — they live in Chrome's storage, not in the extension files.
+
+### Uninstall
+
+Go to `chrome://extensions`, find HTMLVault, and click **Remove**. Then delete the unzipped folder.
 
 ## Usage
 
@@ -97,9 +114,19 @@ extension/          ← Chrome MV3 extension (the product)
   storage.js
   icons/
 
+package.sh          ← Build a release zip from extension/
 htmlvault/          ← Retired Python CLI (commented out, kept for history)
 pyproject.toml      ← Commented out; repo is no longer a Python package
 ```
+
+## For maintainers — releasing a new version
+
+1. Bump `version` in `extension/manifest.json`.
+2. Run `./package.sh` — produces `dist/htmlvault-<version>.zip`.
+3. Smoke-test locally: unzip to a fresh dir and Load unpacked in a clean Chrome profile.
+4. `gh release create v<version> dist/htmlvault-<version>.zip --title "HTMLVault v<version>" --notes-file CHANGELOG.md`
+
+The zip contains only the files under `extension/` with `manifest.json` at the archive root — that's the layout Chrome requires.
 
 ## License
 
