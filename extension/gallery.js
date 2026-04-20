@@ -50,8 +50,18 @@ async function init() {
   }
 
   // -- Event binding (all via addEventListener, no inline handlers) --
-  document.getElementById('search').addEventListener('input', render);
-  document.getElementById('empty-add-btn').addEventListener('click', addFolder);
+  // P0 fix: bind event delegation FIRST, before any element may be missing,
+  // so dynamic buttons (e.g. "Add Another Folder") always work.
+  document.getElementById('content').addEventListener('click', handleContentClick);
+
+  const searchEl = document.getElementById('search');
+  if (searchEl) searchEl.addEventListener('input', render);
+
+  // P0 fix: #empty-add-btn only exists in the initial HTML; scanAll() replaces
+  // #content before this line runs, so the element is often gone. Guard null
+  // to prevent init from crashing (which previously killed all later bindings).
+  const emptyAddBtn = document.getElementById('empty-add-btn');
+  if (emptyAddBtn) emptyAddBtn.addEventListener('click', addFolder);
 
   document.querySelectorAll('#group-btns .gbtn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -73,8 +83,7 @@ async function init() {
     });
   });
 
-  // P0-1 fix: Event delegation for all dynamic content
-  document.getElementById('content').addEventListener('click', handleContentClick);
+  // (Event delegation for #content was moved to the top of Event binding above.)
 }
 
 // P0-1: Central event delegation handler for all dynamic elements
