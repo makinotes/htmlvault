@@ -22,8 +22,9 @@ let groupBy = 'folder';
 let typeFilter = 'all';
 let _observer = null;
 let _previewUrls = new Map(); // cache: relpath -> blob URL (truncated, for preview only)
-let _scanning = false;          // P1-6: scan lock
+let _scanLock = Promise.resolve(); // P1 fix: Promise-chain scan lock (replaces _scanning bool)
 let _foldCounter = 0;           // P2-10: unique fold IDs
+let _searchTimer = null;        // P1 fix: debounce search input
 
 // -- Init --
 async function init() {
@@ -55,7 +56,13 @@ async function init() {
   document.getElementById('content').addEventListener('click', handleContentClick);
 
   const searchEl = document.getElementById('search');
-  if (searchEl) searchEl.addEventListener('input', render);
+  if (searchEl) {
+    // P1 fix: debounce to avoid O(n) filter on every keystroke at 5k+ files
+    searchEl.addEventListener('input', () => {
+      clearTimeout(_searchTimer);
+      _searchTimer = setTimeout(() => render(), 150);
+    });
+  }
 
   // P0 fix: #empty-add-btn only exists in the initial HTML; scanAll() replaces
   // #content before this line runs, so the element is often gone. Guard null
@@ -131,10 +138,21 @@ async function handleContentClick(ev) {
 }
 
 // -- Scanning --
-async function scanAll(handles) {
-  if (_scanning) return;  // P1-6: prevent concurrent scans
-  _scanning = true;
+// P1 fix: Promise-chain lock so concurrent scanAll() calls (e.g. addFolder
+// during an in-flight scan) serialize instead of either aborting or racing.
+function scanAll(handles) {
+  _scanLock = _scanLock.then(() => _scanAllInner(handles)).catch((e) => {
+    console.error('scanAll failed:', e);
+  });
+  return _scanLock;
+}
 
+// P1 fix: yield to the UI between heavy chunks so the main thread can paint.
+function _yield() {
+  return new Promise((r) => setTimeout(r, 0));
+}
+
+async function _scanAllInner(handles) {
   // P1-4: cleanup old preview blob URLs
   for (const url of _previewUrls.values()) URL.revokeObjectURL(url);
   _previewUrls.clear();
@@ -144,52 +162,63 @@ async function scanAll(handles) {
   const el = document.getElementById('content');
   el.innerHTML = '<div class="scanning"><div class="scanning-spinner"></div><p>Scanning directories...</p></div>';
 
-  try {
-    FILES = [];
-    let validHandles = [];
+  FILES = [];
+  let validHandles = [];
+  const lostHandles = [];
 
-    for (const record of handles) {
-      const handle = record.handle;
-      const ok = await verifyPermission(handle);
-      if (!ok) {
-        toast('Permission needed for ' + record.id + '. Re-add the folder to authorize.');
-        continue;
-      }
-      validHandles.push(record);
+  for (const record of handles) {
+    const handle = record.handle;
+    const ok = await verifyPermission(handle);
+    if (!ok) {
+      // P1 fix: track lost handles for a single, clearer end-of-scan message
+      lostHandles.push(record.id);
+      continue;
+    }
+    validHandles.push(record);
 
-      const files = await scanDirectory(handle, record.id, (count) => {
-        const p = el.querySelector('p');
-        if (p) p.textContent = 'Scanning... ' + count + ' files found';
-      });
+    const files = await scanDirectory(handle, record.id, (count) => {
+      const p = el.querySelector('p');
+      if (p) p.textContent = 'Scanning... ' + count + ' files found';
+    });
 
-      // Categorize files (P1-5: don't store _content permanently)
-      for (const f of files) {
+    // P1 fix: categorize in chunks + yield, so 2k-file folders don't freeze UI.
+    const CHUNK = 20;
+    for (let i = 0; i < files.length; i += CHUNK) {
+      const slice = files.slice(i, i + CHUNK);
+      for (const f of slice) {
         const content = await readFileContent(f._fileHandle);
         f.type = categorize(content, f.size, f.relpath + ':' + f.mtime);
         f.size_fmt = formatSize(f.size);
-        // NOT storing f._content — read on demand for preview/open
       }
-
-      FILES = FILES.concat(files);
+      // Update status after each chunk and let the browser paint.
+      const p = el.querySelector('p');
+      if (p) p.textContent = 'Categorizing... ' + Math.min(i + CHUNK, files.length) + '/' + files.length + ' in ' + record.id;
+      await _yield();
     }
 
-    // Filter hidden files
-    FILES = FILES.filter(f => !HIDDEN.includes(f.relpath));
-    FILES.sort((a, b) => b.mtime - a.mtime);
+    FILES = FILES.concat(files);
+  }
 
-    const subtitle = validHandles.map(h => h.id).join(', ') + ' \u2014 ' + FILES.length + ' files';
-    document.getElementById('subtitle').textContent = subtitle;
+  // Filter hidden files
+  FILES = FILES.filter(f => !HIDDEN.includes(f.relpath));
+  FILES.sort((a, b) => b.mtime - a.mtime);
 
-    if (FILES.length > 0) {
-      document.getElementById('toolbar').style.display = '';
-      buildTypeFilters();
-      render();
-    } else {
-      el.innerHTML = '<div class="empty"><p>No HTML files found in scanned directories.</p>' +
-        '<button class="empty-btn" data-action="add-folder">Add Another Folder</button></div>';
-    }
-  } finally {
-    _scanning = false;
+  const subtitle = validHandles.map(h => h.id).join(', ') + ' \u2014 ' + FILES.length + ' files';
+  document.getElementById('subtitle').textContent = subtitle;
+
+  // P1 fix: single informative toast about permission loss after scan settles.
+  if (lostHandles.length) {
+    toast('Permission lost for: ' + lostHandles.join(', ') + '. Remove the chip and re-add the folder to restore access.');
+  }
+
+  if (FILES.length > 0) {
+    document.getElementById('toolbar').style.display = '';
+    buildTypeFilters();
+    render();
+  } else {
+    el.innerHTML = '<div class="empty"><p>No HTML files found yet.</p>' +
+      '<p class="empty-hint">Pick a folder that contains <code>.html</code> or <code>.htm</code> files (at least 500 B each). Subfolders are scanned automatically.</p>' +
+      '<button class="empty-btn" data-action="add-folder">Add Another Folder</button></div>';
   }
 }
 

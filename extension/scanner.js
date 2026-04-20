@@ -66,7 +66,11 @@ async function _scanRecursive(dirHandle, relPrefix, rootName, results, onProgres
         _fileHandle: entry, // keep handle for reading content later
       });
 
-      if (onProgress) onProgress(results.length);
+      // P1 fix: throttle progress callback — fire every 50 files (and at milestones)
+      // instead of every file, so huge folders don't cause 2k DOM updates.
+      if (onProgress && (results.length <= 10 || results.length % 50 === 0)) {
+        onProgress(results.length);
+      }
     }
     }
   } catch (e) {
@@ -80,6 +84,8 @@ async function _scanRecursive(dirHandle, relPrefix, rootName, results, onProgres
     const subPrefix = relPrefix ? relPrefix + "/" + sub.name : sub.name;
     await _scanRecursive(sub.handle, subPrefix, rootName, results, onProgress);
   }
+  // P1 fix: final flush so the count settles at the real number, not a multiple of 50.
+  if (relPrefix === "" && onProgress) onProgress(results.length);
 }
 
 /**
