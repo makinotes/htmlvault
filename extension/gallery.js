@@ -12,6 +12,7 @@ const SVG_PIN = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentCo
 const SVG_PIN_OUTLINE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 2l-4 4-5-2-3 3 4 5-6 6h2l4-4 5 4 3-3-2-5 4-4-2-4z"/></svg>';
 const SVG_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14"/></svg>';
 const SVG_COPY = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+const SVG_CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>';
 
 // -- State --
 let FILES = [];
@@ -91,6 +92,29 @@ async function init() {
   });
 
   // (Event delegation for #content was moved to the top of Event binding above.)
+
+  // P2 fix: keyboard shortcuts — Cmd/Ctrl+F focuses search, Esc clears it.
+  document.addEventListener('keydown', (ev) => {
+    // Cmd+F (mac) or Ctrl+F (win/linux) — focus search
+    if ((ev.metaKey || ev.ctrlKey) && ev.key === 'f') {
+      const s = document.getElementById('search');
+      if (s) {
+        ev.preventDefault();
+        s.focus();
+        s.select();
+      }
+      return;
+    }
+    // Esc — clear search if it has content or is focused
+    if (ev.key === 'Escape') {
+      const s = document.getElementById('search');
+      if (s && (document.activeElement === s || s.value)) {
+        s.value = '';
+        s.blur();
+        render();
+      }
+    }
+  });
 }
 
 // P0-1: Central event delegation handler for all dynamic elements
@@ -257,6 +281,7 @@ async function removeFolder(name) {
     document.getElementById('toolbar').style.display = 'none';
     document.getElementById('subtitle').textContent = '';
     document.getElementById('content').innerHTML = '<div class="empty"><p>No folders added yet.</p>' +
+      '<p class="empty-hint">HTMLVault scans local folders for <code>.html</code> / <code>.htm</code> files and shows them here. Your files never leave your machine.</p>' +
       '<button class="empty-btn" data-action="add-folder">Add Folder</button></div>';
   }
 }
@@ -359,8 +384,25 @@ async function openFile(relpath) {
   }
 }
 
-function copyPath(relpath) {
-  navigator.clipboard.writeText(relpath).then(() => toast('Path copied'));
+function copyPath(relpath, btn) {
+  navigator.clipboard.writeText(relpath).then(() => {
+    toast('Path copied');
+    // P2 fix: inline visual feedback on the button itself — toast alone is
+    // easy to miss when the user is mid-scan or scrolling.
+    if (btn) {
+      const original = btn.innerHTML;
+      btn.innerHTML = SVG_CHECK;
+      btn.classList.add('copied');
+      clearTimeout(btn._copyTimer);
+      btn._copyTimer = setTimeout(() => {
+        btn.innerHTML = original;
+        btn.classList.remove('copied');
+      }, 1000);
+    }
+  }).catch((e) => {
+    console.warn('Copy failed:', e);
+    toast('Copy failed — clipboard permission denied');
+  });
 }
 
 async function togglePin(relpath) {
