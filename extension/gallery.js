@@ -28,7 +28,60 @@ let _foldCounter = 0;           // P2-10: unique fold IDs
 let _searchTimer = null;        // P1 fix: debounce search input
 
 // -- Init --
+// P2 fix: feature-detect the File System Access API so users on unsupported
+// browsers (Safari, Firefox — which can technically side-load a Chromium
+// extension via wrappers, but lack showDirectoryPicker) see a clear message
+// instead of a dead "Add Folder" button.
+function isFileSystemAccessSupported() {
+  return typeof window.showDirectoryPicker === 'function';
+}
+
+function renderUnsupportedBrowser() {
+  const el = document.getElementById('content');
+  if (!el) return;
+  // Best-effort browser name for the message.
+  const ua = navigator.userAgent;
+  let name = 'your browser';
+  if (/Firefox\//.test(ua)) name = 'Firefox';
+  else if (/Version\/[\d.]+.*Safari\//.test(ua) && !/Chrome|Chromium|Edg/.test(ua)) name = 'Safari';
+
+  el.innerHTML =
+    '<div class="empty unsupported">' +
+      '<h2>HTMLVault needs a Chromium-based browser</h2>' +
+      '<p class="empty-hint">' +
+        name + ' does not support the File System Access API ' +
+        '(<code>window.showDirectoryPicker</code>), which HTMLVault uses ' +
+        'to read local folders. Nothing on this page will work here.' +
+      '</p>' +
+      '<p class="empty-hint">' +
+        'Please use one of these instead:' +
+      '</p>' +
+      '<ul class="empty-list">' +
+        '<li>Google Chrome (Windows, macOS, Linux, ChromeOS)</li>' +
+        '<li>Microsoft Edge (Windows, macOS, Linux)</li>' +
+        '<li>Brave, Arc, Opera, Vivaldi (all Chromium-based)</li>' +
+      '</ul>' +
+      '<p class="empty-hint">' +
+        'Mobile browsers are not supported — HTMLVault is desktop-only.' +
+      '</p>' +
+    '</div>';
+  // Also hide the toolbar / dir-bar since they would be useless.
+  const tb = document.getElementById('toolbar');
+  if (tb) tb.style.display = 'none';
+  const bar = document.getElementById('dir-bar');
+  if (bar) bar.style.display = 'none';
+  const sub = document.getElementById('subtitle');
+  if (sub) sub.textContent = 'Unsupported browser';
+}
+
 async function init() {
+  // P2 fix: hard stop on unsupported browsers — every downstream call
+  // (showDirectoryPicker, scanDirectory) would fail silently otherwise.
+  if (!isFileSystemAccessSupported()) {
+    renderUnsupportedBrowser();
+    return;
+  }
+
   const settings = await getSettings();
   view = settings.view || 'grid';
   groupBy = settings.groupBy || 'folder';
@@ -249,11 +302,24 @@ async function _scanAllInner(handles) {
 
 // -- Add / remove folder --
 async function addFolder() {
+  // P2 fix: defensive check — init() already hard-stops on unsupported
+  // browsers, but if addFolder somehow fires (e.g. from a lingering bound
+  // handler), give the user a real explanation instead of a silent catch.
+  if (!isFileSystemAccessSupported()) {
+    toast('This browser does not support folder picking. Use Chrome, Edge, Brave, or Arc.');
+    return;
+  }
   let dirHandle;
   try {
     dirHandle = await window.showDirectoryPicker({ mode: 'read' });
   } catch (e) {
-    return; // User cancelled
+    // User cancelled the picker, or the API threw a security error.
+    // NotAllowedError / SecurityError have meaningful messages; cancellation
+    // raises AbortError which we intentionally swallow.
+    if (e && e.name && e.name !== 'AbortError') {
+      toast('Could not open folder picker: ' + e.name);
+    }
+    return;
   }
 
   // P1-2: handle name collision — append timestamp if duplicate

@@ -6,6 +6,23 @@ AI tools (Claude, ChatGPT, Cursor) generate self-contained HTML files — slides
 
 Pick a folder on your machine, HTMLVault scans it for `.html` / `.htm` files, auto-categorizes them, and shows everything in a clean gallery. Files never leave your machine.
 
+## Supported browsers
+
+HTMLVault needs the **File System Access API** (`window.showDirectoryPicker`), which is currently Chromium-only. That's a hard requirement — without it, there's no way to let you pick a local folder.
+
+| Browser | Windows | macOS | Linux | Verdict |
+|---|---|---|---|---|
+| **Chrome** | ✅ | ✅ | ✅ | Fully supported |
+| **Edge** | ✅ | ✅ | ✅ | Fully supported |
+| **Brave** | ✅ | ✅ | ✅ | Fully supported |
+| **Arc** | ✅ | ✅ | — | Fully supported |
+| **Opera / Vivaldi** | ✅ | ✅ | ✅ | Fully supported |
+| **Safari** | — | ❌ | — | Not supported (no File System Access API) |
+| **Firefox** | ❌ | ❌ | ❌ | Not supported (no File System Access API) |
+| **Any mobile browser** | — | — | — | Not supported (extensions and/or the API are missing) |
+
+If you open HTMLVault in Safari or Firefox, the gallery shows a clear "unsupported browser" message instead of silently failing.
+
 ## Install
 
 HTMLVault is a Chrome extension. Two ways to install:
