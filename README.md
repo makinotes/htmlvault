@@ -1,99 +1,88 @@
 # HTMLVault
 
-Your AI-generated HTML showcase. Scan directories, auto-categorize, and browse HTML files in an interactive gallery.
-
-## Why
+**Your AI-generated HTML showcase, as a Chrome extension.**
 
 AI tools (Claude, ChatGPT, Cursor) generate self-contained HTML files — slides, charts, dashboards, data cards — that pile up across project directories with no good way to browse, organize, or find them later. HTMLVault solves this.
 
-## Features
-
-- **Auto-scan** directories recursively for HTML files
-- **Smart categorization** — detects slides, charts, dashboards, cards, and pages by analyzing content
-- **Time-based layering** — Pinned / Recent (7 days) / Older, no manual tagging needed
-- **Live iframe previews** — real-time thumbnail rendering via CSS transform, zero dependencies
-- **Multi-version folding** — similar filenames in the same folder collapse automatically (e.g. `report.html`, `report-v2.html`)
-- **Finder-style UI** — clean white theme, hover-to-reveal actions, system blue accent
-- **Pin & Trash** — pin important files, trash files (moves to `.htmlvault/trash/`)
-- **Directory management** — add/remove scan directories via native macOS folder picker or drag-and-drop
-- **Grid & List views** with folder/type/flat grouping
-- **Search** across filenames and paths
+Pick a folder on your machine, HTMLVault scans it for `.html` / `.htm` files, auto-categorizes them, and shows everything in a clean gallery. Files never leave your machine.
 
 ## Install
 
-```bash
-pip install htmlvault
-```
+HTMLVault is a Chrome extension. Two ways to install:
 
-Or install from source:
+### Option 1 — Chrome Web Store (recommended once published)
 
-```bash
-git clone https://github.com/makinotes/htmlvault.git
-cd htmlvault
-pip install -e .
-```
+Search **HTMLVault** in the Chrome Web Store and click **Add to Chrome**.
+
+### Option 2 — Load unpacked (developer mode)
+
+1. Clone or download this repo.
+2. Open `chrome://extensions` in Chrome.
+3. Toggle **Developer mode** (top right).
+4. Click **Load unpacked** and select the `extension/` folder in this repo.
+5. Pin HTMLVault to the toolbar for easy access.
 
 ## Usage
 
-### Serve mode (recommended)
+1. Click the HTMLVault toolbar icon → the gallery opens in a new tab.
+2. Click **Add Folder** and pick a directory containing HTML files (subfolders are scanned automatically).
+3. Browse. Search. Pin the good stuff. Hide the noise.
 
-Start a local server with live gallery:
+### Keyboard shortcuts
 
-```bash
-htmlvault serve ~/projects
-```
+- `Cmd/Ctrl + F` — focus the search box
+- `Esc` — clear search
 
-Opens `http://localhost:7749` in your browser. Features:
-- Click file to open in system default app
-- Click folder icon to reveal in Finder
-- Pin/unpin files (persisted across sessions)
-- Trash files (moved to `.htmlvault/trash/`)
-- Add scan directories via folder picker
+### Categories
 
-Options:
-```bash
-htmlvault serve ~/projects --port 8080 --no-open
-```
-
-### Scan mode
-
-Generate a static gallery HTML file:
-
-```bash
-htmlvault scan ~/projects -o gallery.html
-open gallery.html
-```
-
-## How categorization works
-
-HTMLVault reads the first 200KB of each HTML file and pattern-matches against known libraries and structural patterns:
+HTMLVault reads the first 200 KB of each file and pattern-matches against known libraries and structural patterns:
 
 | Category | Detection signals |
 |----------|-------------------|
 | **slide** | Swiper, Reveal.js, Impress.js, `data-slide` attributes, multiple `<section>` with navigation |
 | **chart** | ECharts, Chart.js, D3, Highcharts, Plotly, heavy SVG `<path>` usage (>20 paths) |
 | **dashboard** | "dashboard" keyword + grid/flex layouts, panel/metric/KPI patterns |
-| **card** | Fixed canvas dimensions (1280/1080/720px), small file (<100KB), few DOM elements |
+| **card** | Fixed canvas dimensions (1280/1080/720px), small file (<100 KB), few DOM elements |
 | **page** | Default fallback |
 
-Results are cached by file modification time — only re-reads changed files.
+Results are cached by file modification time — only changed files are re-read.
 
-## Config
+## Privacy
 
-HTMLVault stores config in `.htmlvault/` inside the first scanned directory:
+- Your files never leave your machine. No network calls, no telemetry.
+- Folder access uses the Chrome **File System Access API** — you grant permission per folder, and Chrome can revoke it anytime.
+- Pinned paths and hidden paths are stored in `chrome.storage.local`.
+- Directory handles are stored in the extension's IndexedDB.
+
+## The old Python CLI (retired)
+
+Earlier versions of HTMLVault shipped as a Python CLI (`pip install htmlvault` → `htmlvault serve` / `htmlvault scan`). **This CLI is retired.** All future development happens in the Chrome extension.
+
+The Python source under `htmlvault/` is kept in the repo for historical reference only:
+
+- The `.py` files are wrapped in docstrings — they import cleanly but export nothing, so `from htmlvault.cli import main` fails at import time.
+- `pyproject.toml` is fully commented out, so `pip install .` / `pip install -e .` / `python -m build` will all refuse to produce a package.
+- PyPI release `htmlvault==0.1.0` remains available but will not receive updates.
+
+If you specifically need the old CLI, check out an earlier git tag (`<= v0.1.0`) — but you almost certainly don't.
+
+**Why the change?** HTMLVault's target user is someone who just wants to browse their AI-generated HTML files. That user doesn't have Python installed. A Chrome extension removes the entire Python toolchain from the install path and gets us cross-platform for free. Maintaining both forms meant every categorizer tweak had to be written twice.
+
+## Repo layout
 
 ```
-.htmlvault/
-  config.json   # scan directories
-  pins.json     # pinned file paths
-  trash/        # trashed files (preserving directory structure)
+extension/          ← Chrome MV3 extension (the product)
+  manifest.json
+  gallery.html / .css / .js
+  background.js
+  scanner.js
+  categorizer.js
+  storage.js
+  icons/
+
+htmlvault/          ← Retired Python CLI (commented out, kept for history)
+pyproject.toml      ← Commented out; repo is no longer a Python package
 ```
-
-## Requirements
-
-- Python >= 3.9
-- click >= 8.0
-- jinja2 >= 3.0
 
 ## License
 

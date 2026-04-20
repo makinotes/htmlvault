@@ -1,4 +1,21 @@
-"""HTMLVault CLI — scan and serve HTML galleries."""
+"""
+RETIRED — HTMLVault has moved to a Chrome extension as its only supported form.
+
+This Python CLI (`htmlvault serve` / `htmlvault scan`) is kept in the repo
+for historical reference only. It is no longer installed by pyproject.toml,
+no longer published to PyPI, and no longer maintained. The logic here has
+been reimplemented in `extension/` as MV3-compliant JavaScript.
+
+If you are a non-technical user: please install the Chrome extension
+(see README.md for instructions).
+
+If you want to run the old CLI, revert to an earlier git tag (<= v0.1.0).
+The entire original source is preserved below as a docstring so it can be
+read, copied, or revived, but it will NOT execute as a module.
+"""
+
+_RETIRED_ORIGINAL_SOURCE = r"""
+\"\"\"HTMLVault CLI — scan and serve HTML galleries.\"\"\"
 
 import os
 import subprocess
@@ -13,7 +30,7 @@ from htmlvault.server import serve, load_pins
 
 
 def _resolve_dirs(directories):
-    """Expand and validate directory paths."""
+    \"\"\"Expand and validate directory paths.\"\"\"
     resolved = []
     for d in directories:
         d = os.path.expanduser(d)
@@ -26,19 +43,19 @@ def _resolve_dirs(directories):
 
 
 def _vault_dir(base_dir):
-    """Return .htmlvault/ dir path inside the scanned directory."""
+    \"\"\"Return .htmlvault/ dir path inside the scanned directory.\"\"\"
     return os.path.join(base_dir, ".htmlvault")
 
 
 def _pins_file(base_dir):
-    """Return pins.json path."""
+    \"\"\"Return pins.json path.\"\"\"
     return os.path.join(_vault_dir(base_dir), "pins.json")
 
 
 @click.group()
 @click.version_option()
 def main():
-    """HTMLVault — Your AI-generated HTML showcase."""
+    \"\"\"HTMLVault — Your AI-generated HTML showcase.\"\"\"
     pass
 
 
@@ -46,7 +63,7 @@ def main():
 @click.argument("directories", nargs=-1, required=True)
 @click.option("-o", "--output", default="gallery.html", help="Output file path.")
 def scan_cmd(directories, output):
-    """Scan directories and generate a static gallery HTML."""
+    \"\"\"Scan directories and generate a static gallery HTML.\"\"\"
     dirs = _resolve_dirs(directories)
     if not dirs:
         click.echo("Error: no valid directories.", err=True)
@@ -72,7 +89,7 @@ def scan_cmd(directories, output):
 @click.option("-p", "--port", default=7749, help="Server port.")
 @click.option("--no-open", is_flag=True, help="Don't auto-open browser.")
 def serve_cmd(directories, port, no_open):
-    """Start a local server with live gallery (recommended)."""
+    \"\"\"Start a local server with live gallery (recommended).\"\"\"
     dirs = _resolve_dirs(directories)
     if not dirs:
         click.echo("Error: no valid directories.", err=True)
@@ -95,3 +112,4 @@ def serve_cmd(directories, port, no_open):
 # Register commands with proper names
 main.add_command(scan_cmd, "scan")
 main.add_command(serve_cmd, "serve")
+"""

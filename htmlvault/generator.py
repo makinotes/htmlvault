@@ -1,4 +1,21 @@
-"""Gallery HTML generator — render scan results into gallery.html."""
+"""
+RETIRED — HTMLVault has moved to a Chrome extension as its only supported form.
+
+This Python CLI (`htmlvault serve` / `htmlvault scan`) is kept in the repo
+for historical reference only. It is no longer installed by pyproject.toml,
+no longer published to PyPI, and no longer maintained. The logic here has
+been reimplemented in `extension/` as MV3-compliant JavaScript.
+
+If you are a non-technical user: please install the Chrome extension
+(see README.md for instructions).
+
+If you want to run the old CLI, revert to an earlier git tag (<= v0.1.0).
+The entire original source is preserved below as a docstring so it can be
+read, copied, or revived, but it will NOT execute as a module.
+"""
+
+_RETIRED_ORIGINAL_SOURCE = r"""
+\"\"\"Gallery HTML generator — render scan results into gallery.html.\"\"\"
 
 import json
 import os
@@ -19,7 +36,7 @@ def generate(
     pins: List[str] = None,
     output_path: str = None,
 ) -> str:
-    """Generate gallery HTML from scan results.
+    \"\"\"Generate gallery HTML from scan results.
 
     Args:
         files: list of file dicts from scanner.scan()
@@ -29,7 +46,7 @@ def generate(
                      otherwise return HTML string
     Returns:
         HTML string or output file path
-    """
+    \"\"\"
     if pins is None:
         pins = []
 
@@ -68,3 +85,4 @@ def generate(
         return output_path
 
     return html
+"""

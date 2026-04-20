@@ -1,4 +1,21 @@
-"""Directory scanner — find user-created HTML files."""
+"""
+RETIRED — HTMLVault has moved to a Chrome extension as its only supported form.
+
+This Python CLI (`htmlvault serve` / `htmlvault scan`) is kept in the repo
+for historical reference only. It is no longer installed by pyproject.toml,
+no longer published to PyPI, and no longer maintained. The logic here has
+been reimplemented in `extension/` as MV3-compliant JavaScript.
+
+If you are a non-technical user: please install the Chrome extension
+(see README.md for instructions).
+
+If you want to run the old CLI, revert to an earlier git tag (<= v0.1.0).
+The entire original source is preserved below as a docstring so it can be
+read, copied, or revived, but it will NOT execute as a module.
+"""
+
+_RETIRED_ORIGINAL_SOURCE = r"""
+\"\"\"Directory scanner — find user-created HTML files.\"\"\"
 
 import os
 from typing import List, Dict
@@ -19,7 +36,7 @@ MIN_FILE_SIZE = 500  # bytes — skip empty shells
 
 
 def scan(directories: List[str], extra_excludes: List[str] = None) -> List[Dict]:
-    """Scan directories for user-created HTML files.
+    \"\"\"Scan directories for user-created HTML files.
 
     Returns list of dicts with keys:
         path (str): absolute path
@@ -28,7 +45,7 @@ def scan(directories: List[str], extra_excludes: List[str] = None) -> List[Dict]
         folder (str): parent directory relative to scan root
         mtime (float): modification timestamp
         size (int): file size in bytes
-    """
+    \"\"\"
     excludes = DEFAULT_EXCLUDES.copy()
     if extra_excludes:
         excludes.update(extra_excludes)
@@ -49,7 +66,7 @@ def scan(directories: List[str], extra_excludes: List[str] = None) -> List[Dict]
 def _scan_dir(
     current: str, root: str, excludes: set, results: list
 ) -> None:
-    """Recursively scan a directory."""
+    \"\"\"Recursively scan a directory.\"\"\"
     dirs = []
     try:
         # Use as context manager so the directory handle is released even if
@@ -103,10 +120,11 @@ def _scan_dir(
 
 
 def format_size(size_bytes: int) -> str:
-    """Human-readable file size."""
+    \"\"\"Human-readable file size.\"\"\"
     if size_bytes < 1024:
         return f"{size_bytes} B"
     elif size_bytes < 1024 * 1024:
         return f"{size_bytes // 1024} KB"
     else:
         return f"{size_bytes / (1024 * 1024):.1f} MB"
+"""

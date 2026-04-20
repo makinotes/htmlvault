@@ -1,4 +1,21 @@
-"""HTML type categorizer — detect slide/chart/dashboard/card/page."""
+"""
+RETIRED — HTMLVault has moved to a Chrome extension as its only supported form.
+
+This Python CLI (`htmlvault serve` / `htmlvault scan`) is kept in the repo
+for historical reference only. It is no longer installed by pyproject.toml,
+no longer published to PyPI, and no longer maintained. The logic here has
+been reimplemented in `extension/` as MV3-compliant JavaScript.
+
+If you are a non-technical user: please install the Chrome extension
+(see README.md for instructions).
+
+If you want to run the old CLI, revert to an earlier git tag (<= v0.1.0).
+The entire original source is preserved below as a docstring so it can be
+read, copied, or revived, but it will NOT execute as a module.
+"""
+
+_RETIRED_ORIGINAL_SOURCE = r"""
+\"\"\"HTML type categorizer — detect slide/chart/dashboard/card/page.\"\"\"
 
 import os
 import re
@@ -12,11 +29,11 @@ _cache: "OrderedDict[str, tuple]" = OrderedDict()
 
 
 def categorize(filepath: str) -> str:
-    """Categorize an HTML file by analyzing its content.
+    \"\"\"Categorize an HTML file by analyzing its content.
 
     Results are cached by filepath + mtime — only re-reads if file changed.
     Returns one of: slide, chart, dashboard, card, page
-    """
+    \"\"\"
     try:
         mtime = os.path.getmtime(filepath)
     except OSError:
@@ -54,7 +71,7 @@ def categorize(filepath: str) -> str:
 
 
 def _is_slide(lower: str, raw: str) -> bool:
-    """Detect presentation / slide deck."""
+    \"\"\"Detect presentation / slide deck.\"\"\"
     # Known slide libraries
     slide_libs = [
         "swiper", "reveal.js", "reveal.min", "impress.js",
@@ -86,7 +103,7 @@ def _is_slide(lower: str, raw: str) -> bool:
 
 
 def _is_chart(lower: str) -> bool:
-    """Detect chart / data visualization."""
+    \"\"\"Detect chart / data visualization.\"\"\"
     chart_libs = [
         "echarts.init", "echarts.min", "new chart(",
         "chart.js", "chartjs", "d3.select", "d3.min",
@@ -106,7 +123,7 @@ def _is_chart(lower: str) -> bool:
 
 
 def _is_dashboard(lower: str) -> bool:
-    """Detect dashboard / multi-panel layout."""
+    \"\"\"Detect dashboard / multi-panel layout.\"\"\"
     # Explicit dashboard keyword in meaningful context
     dash_patterns = [
         "dashboard", "data-panel", "panel-container",
@@ -128,7 +145,7 @@ def _is_dashboard(lower: str) -> bool:
 
 
 def _is_card(lower: str, content_size: int) -> bool:
-    """Detect card / small fixed-canvas output."""
+    \"\"\"Detect card / small fixed-canvas output.\"\"\"
     if content_size > 100_000:  # > 100KB is not a card
         return False
 
@@ -145,3 +162,4 @@ def _is_card(lower: str, content_size: int) -> bool:
         return True
 
     return False
+"""

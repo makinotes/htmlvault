@@ -1,4 +1,21 @@
-"""Local HTTP server for serve mode — enables Finder open, pin, trash, directory management."""
+"""
+RETIRED — HTMLVault has moved to a Chrome extension as its only supported form.
+
+This Python CLI (`htmlvault serve` / `htmlvault scan`) is kept in the repo
+for historical reference only. It is no longer installed by pyproject.toml,
+no longer published to PyPI, and no longer maintained. The logic here has
+been reimplemented in `extension/` as MV3-compliant JavaScript.
+
+If you are a non-technical user: please install the Chrome extension
+(see README.md for instructions).
+
+If you want to run the old CLI, revert to an earlier git tag (<= v0.1.0).
+The entire original source is preserved below as a docstring so it can be
+read, copied, or revived, but it will NOT execute as a module.
+"""
+
+_RETIRED_ORIGINAL_SOURCE = r"""
+\"\"\"Local HTTP server for serve mode — enables Finder open, pin, trash, directory management.\"\"\"
 
 import http.server
 import json
@@ -16,10 +33,10 @@ from htmlvault.generator import generate
 
 
 def _open_native(target: str) -> bool:
-    """Platform-aware 'reveal in file manager / open with default app'.
+    \"\"\"Platform-aware 'reveal in file manager / open with default app'.
 
     Returns True if a command was launched. Quietly no-ops on unknown platforms.
-    """
+    \"\"\"
     try:
         if sys.platform == "darwin":
             subprocess.Popen(["open", target])
@@ -35,7 +52,7 @@ def _open_native(target: str) -> bool:
 
 
 class _Cache:
-    """Gallery cache — avoid re-scanning on every page load."""
+    \"\"\"Gallery cache — avoid re-scanning on every page load.\"\"\"
     html = ""          # rendered gallery HTML
     files = []         # scan results
     _dirty = True      # needs re-scan
@@ -66,7 +83,7 @@ class _Cache:
 
 
 class VaultHandler(http.server.BaseHTTPRequestHandler):
-    """HTTP handler with API endpoints."""
+    \"\"\"HTTP handler with API endpoints.\"\"\"
 
     vault_dir = ""
 
@@ -304,12 +321,12 @@ def _guess_content_type(filepath: str) -> str:
     return _CONTENT_TYPES.get(ext, "application/octet-stream")
 
 def _pick_folder() -> str:
-    """Open a native folder picker if available, else return empty.
+    \"\"\"Open a native folder picker if available, else return empty.
 
     macOS: uses osascript (AppleScript).
     Linux/Windows: no picker — callers should supply the path via the request
     body instead. The frontend's drag-and-drop and typed-path flows both do this.
-    """
+    \"\"\"
     if sys.platform != "darwin":
         return ""
     try:
@@ -327,11 +344,11 @@ def _pick_folder() -> str:
 
 
 def _path_within_scan_dirs(target: str, scan_dirs: List[str]) -> bool:
-    """Check that `target` is inside one of the configured scan directories.
+    \"\"\"Check that `target` is inside one of the configured scan directories.
 
     Resolves both sides to absolute paths with trailing sep to avoid
     `/foo/bar` matching `/foo/bar-evil` as a prefix.
-    """
+    \"\"\"
     try:
         abs_target = os.path.abspath(os.path.realpath(target))
     except (OSError, ValueError):
@@ -417,3 +434,4 @@ def serve(
     except KeyboardInterrupt:
         print("\nStopped.")
         server.server_close()
+"""
