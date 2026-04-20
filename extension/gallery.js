@@ -106,9 +106,10 @@ async function handleContentClick(ev) {
 
     if (action === 'open') await openFile(relpath);
     else if (action === 'pin') await togglePin(relpath);
-    else if (action === 'copy') copyPath(relpath);
+    else if (action === 'copy') copyPath(relpath, btn);
     else if (action === 'hide') await hideFile(relpath);
     else if (action === 'fold') toggleFold(foldTarget, btn);
+    else if (action === 'load-more') loadMoreInSection(btn);
     else if (action === 'add-folder') addFolder();
     return;
   }
@@ -457,6 +458,10 @@ function render() {
   const older = unpinned.filter(f => (now - f.mtime) >= WEEK);
 
   _foldCounter = 0; // P2-10: reset fold counter per render
+  // P1 fix: reset section paging state each render so stale section ids
+  // (from previous groupBy/filter changes) don't accumulate in the Map.
+  _sectionCounter = 0;
+  _sectionState.clear();
   let html = '';
   el.className = 'content view-' + view;
 
@@ -519,13 +524,72 @@ function render() {
   el.querySelectorAll('iframe[data-relpath]').forEach(f => _observer.observe(f));
 }
 
+// -- Section paging state --
+// P1 fix: avoid one-shot 10k-item innerHTML by paging each section.
+// Key = section DOM id, value = { folded: [...], shown: N }.
+const PAGE_SIZE = 100;
+let _sectionCounter = 0;
+const _sectionState = new Map();
+
 function renderSection(title, files) {
   const sorted = [...files].sort((a,b) => b.mtime - a.mtime);
   const folded = foldVersions(sorted);
-  return '<div class="section">' +
+  const sid = 'sec-' + (_sectionCounter++);
+  const shown = Math.min(PAGE_SIZE, folded.length);
+  _sectionState.set(sid, { folded, shown });
+
+  let body = folded.slice(0, shown).map(renderFoldedItem).join('');
+  if (shown < folded.length) {
+    body += _renderLoadMore(sid, folded.length - shown);
+  }
+  return '<div class="section" id="' + sid + '">' +
     '<div class="section-header"><h2>' + esc(title) + '</h2><span class="section-count">' + files.length + '</span></div>' +
-    '<div class="items">' + folded.map(renderFoldedItem).join('') + '</div>' +
+    '<div class="items" data-section="' + sid + '">' + body + '</div>' +
   '</div>';
+}
+
+function _renderLoadMore(sid, remaining) {
+  const next = Math.min(PAGE_SIZE, remaining);
+  return '<div class="load-more" data-action="load-more" data-section="' + sid + '">' +
+    'Show ' + next + ' more (' + remaining + ' remaining)' +
+    '</div>';
+}
+
+// P1 fix: append the next page without re-rendering the whole section —
+// O(page) DOM work instead of O(total).
+function loadMoreInSection(btn) {
+  const sid = btn.dataset.section;
+  const state = _sectionState.get(sid);
+  if (!state) return;
+  const container = document.querySelector('.items[data-section="' + sid + '"]');
+  if (!container) return;
+
+  const nextShown = Math.min(state.shown + PAGE_SIZE, state.folded.length);
+  const slice = state.folded.slice(state.shown, nextShown);
+  state.shown = nextShown;
+
+  // Insert new items just before the load-more button.
+  const tmp = document.createElement('div');
+  tmp.innerHTML = slice.map(renderFoldedItem).join('');
+  const frag = document.createDocumentFragment();
+  while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+  container.insertBefore(frag, btn);
+
+  // Update or remove load-more button.
+  const remaining = state.folded.length - state.shown;
+  if (remaining <= 0) {
+    btn.remove();
+  } else {
+    const next = Math.min(PAGE_SIZE, remaining);
+    btn.textContent = 'Show ' + next + ' more (' + remaining + ' remaining)';
+  }
+
+  // Observe newly inserted iframes for lazy loading.
+  if (_observer) {
+    container.querySelectorAll('iframe[data-relpath]').forEach(f => {
+      if (!f.src) _observer.observe(f);
+    });
+  }
 }
 
 // -- Multi-version folding --
