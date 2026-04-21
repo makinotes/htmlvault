@@ -277,8 +277,9 @@ async function _scanAllInner(handles) {
     FILES = FILES.concat(files);
   }
 
-  // Filter hidden files
-  FILES = FILES.filter(f => !HIDDEN.includes(f.relpath));
+  // Filter hidden files — Set for O(n) instead of O(n×m) on power-user sets.
+  const hiddenSet = new Set(HIDDEN);
+  FILES = FILES.filter(f => !hiddenSet.has(f.relpath));
   FILES.sort((a, b) => b.mtime - a.mtime);
 
   const subtitle = validHandles.map(h => h.id).join(', ') + ' \u2014 ' + FILES.length + ' files';
@@ -328,7 +329,13 @@ async function addFolder() {
   if (existing.some(h => h.id === name)) {
     name = name + '-' + Date.now();
   }
-  await saveDirectoryHandle(name, dirHandle);
+  const saved = await saveDirectoryHandle(name, dirHandle);
+  if (!saved) {
+    // IndexedDB blocked (incognito / policy / quota). Don't lie to the user —
+    // a reload would lose the folder. Abort so they can retry.
+    toast('Could not save folder: browser storage is blocked. Try a regular (non-incognito) window.');
+    return;
+  }
   toast('Added: ' + dirHandle.name);
 
   const handles = await loadDirectoryHandles();
@@ -387,7 +394,9 @@ function renderDirBar(handles) {
 }
 
 // -- Helpers --
-function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+// Full HTML entity escape: & < > " '  — single-quote matters if any future
+// change moves user-controlled output into a single-quoted attribute.
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;'); }
 
 // P2-4: show year for old files
 function shortDate(ts) {
@@ -404,7 +413,12 @@ function shortDate(ts) {
 function isPinned(relpath) { return PINS.indexOf(relpath) !== -1; }
 
 function getFiltered() {
-  const q = document.getElementById('search').value.toLowerCase();
+  // Null-guard: render() can fire from storage callbacks before init() finishes
+  // wiring up the search input, so #search may not exist yet.
+  const searchEl = document.getElementById('search');
+  const q = searchEl ? searchEl.value.toLowerCase() : '';
+  // Pre-compute a Set for O(1) hidden lookup instead of O(n×m) includes().
+  // (HIDDEN is already applied at scan time, but this guards future call sites.)
   return FILES.filter(f => {
     if (typeFilter !== 'all' && f.type !== typeFilter) return false;
     if (q && f.name.toLowerCase().indexOf(q) === -1 && f.relpath.toLowerCase().indexOf(q) === -1) return false;
@@ -438,10 +452,14 @@ function buildTypeFilters() {
 }
 
 // -- Actions (P1-1: always read full file for open, not truncated cache) --
+// NOTE: "Open" deliberately drops all iframe sandboxing — the blob: tab runs
+// the user's HTML with full browser privileges so that charts/slides work.
+// This is acceptable because the user chose to scan these directories and
+// clicked the file. Do NOT import this pattern for preview thumbnails, which
+// run inside bare-`sandbox` iframes.
 async function openFile(relpath) {
   const f = FILES.find(x => x.relpath === relpath);
   if (!f) return;
-  // Always read full file for opening (not truncated preview content)
   const url = await readFileAsBlobUrl(f._fileHandle);
   if (url) {
     window.open(url, '_blank');
@@ -485,7 +503,13 @@ async function togglePin(relpath) {
 async function hideFile(relpath) {
   if (!confirm('Hide "' + relpath + '" from the gallery?\n\nTo restore, clear extension data in chrome://extensions.')) return;
   HIDDEN.push(relpath);
-  await setHiddenFiles(HIDDEN);
+  const res = await setHiddenFiles(HIDDEN);
+  if (res && res.truncated) {
+    // Oldest hidden entries were dropped to stay under quota. Keep state
+    // in sync with what was actually persisted so reload doesn't diverge.
+    HIDDEN = HIDDEN.slice(-5000);
+    toast('Hidden list hit the 5000 limit — oldest entries dropped.');
+  }
   FILES = FILES.filter(f => f.relpath !== relpath);
   render();
   toast('Hidden: ' + relpath);
@@ -587,9 +611,11 @@ function render() {
       if (!groups[k]) groups[k] = [];
       groups[k].push(f);
     });
-    const keys = Object.keys(groups).sort((a,b) => {
-      return Math.max(...groups[b].map(f=>f.mtime)) - Math.max(...groups[a].map(f=>f.mtime));
-    });
+    // Reduce form — Math.max(...arr) can exceed the call-stack arg limit on
+    // folders with 2000+ same-group files (V8 caps at ~65536 args but the cap
+    // has bitten users at lower numbers on some builds).
+    const maxMtime = (arr) => arr.reduce((m, f) => f.mtime > m ? f.mtime : m, 0);
+    const keys = Object.keys(groups).sort((a,b) => maxMtime(groups[b]) - maxMtime(groups[a]));
     keys.forEach(k => {
       const label = groupBy === 'type' ? k.charAt(0).toUpperCase() + k.slice(1) + 's' : k;
       const gRecent = groups[k].filter(f => (now - f.mtime) < WEEK);
@@ -605,28 +631,33 @@ function render() {
 
   el.innerHTML = html;
 
-  // Lazy-load iframes: read file content on intersect, set blob URL
+  // Lazy-load iframes: read file content on intersect, set blob URL.
+  // Each entry is processed in its own async task with try/catch so a single
+  // bad file (permission revoked mid-render, handle invalidated by rescan)
+  // doesn't leak an unhandled rejection or break the observer.
   if (_observer) _observer.disconnect();
   _observer = new IntersectionObserver((entries) => {
-    entries.forEach(async (e) => {
-      if (e.isIntersecting) {
-        const iframe = e.target;
-        const relpath = iframe.dataset.relpath;
-        if (relpath && !iframe.src) {
+    entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      const iframe = e.target;
+      _observer.unobserve(iframe);
+      (async () => {
+        try {
+          const relpath = iframe.dataset.relpath;
+          if (!relpath || iframe.src) return;
           const f = FILES.find(x => x.relpath === relpath);
-          if (f) {
-            const url = await getPreviewUrl(f);
-            if (url) {
-              iframe.src = url;
-              iframe.addEventListener('load', () => {
-                const thumb = iframe.closest('.item-thumb');
-                if (thumb) thumb.classList.add('loaded');
-              });
-            }
-          }
+          if (!f) return;
+          const url = await getPreviewUrl(f);
+          if (!url) return;
+          iframe.src = url;
+          iframe.addEventListener('load', () => {
+            const thumb = iframe.closest('.item-thumb');
+            if (thumb) thumb.classList.add('loaded');
+          }, { once: true });
+        } catch (err) {
+          console.warn('preview load failed:', err);
         }
-        _observer.unobserve(iframe);
-      }
+      })();
     });
   }, { rootMargin: '200px' });
   el.querySelectorAll('iframe[data-relpath]').forEach(f => _observer.observe(f));

@@ -59,8 +59,17 @@ function idbDelete(storeName, key) {
 
 // -- Directory handle persistence --
 
+// Returns true on success, false on failure. Callers should surface a toast
+// if this returns false so the user isn't misled into thinking a folder has
+// been persisted when IndexedDB is blocked (incognito, policy, quota).
 async function saveDirectoryHandle(name, handle) {
-  await idbPut(STORE_HANDLES, { id: name, handle: handle, addedAt: Date.now() });
+  try {
+    await idbPut(STORE_HANDLES, { id: name, handle: handle, addedAt: Date.now() });
+    return true;
+  } catch (e) {
+    console.warn('saveDirectoryHandle failed:', e);
+    return false;
+  }
 }
 
 async function loadDirectoryHandles() {
@@ -140,6 +149,10 @@ function setSettings(settings) {
 
 // -- Hidden files (soft delete) --
 
+// Cap to stay well under chrome.storage.local's 5 MB per-extension quota.
+// 5000 paths × ~200 B avg ≈ 1 MB, leaving headroom for pins and settings.
+const HIDDEN_MAX = 5000;
+
 function getHiddenFiles() {
   return new Promise((resolve) => {
     chrome.storage.local.get({ hidden: [] }, (data) => {
@@ -152,11 +165,22 @@ function getHiddenFiles() {
   });
 }
 
+// Returns { ok, truncated } so UI can toast a warning when the cap bites.
 function setHiddenFiles(hidden) {
+  let trimmed = hidden;
+  let truncated = false;
+  if (trimmed.length > HIDDEN_MAX) {
+    // Keep the most recently added (end of list) entries.
+    trimmed = trimmed.slice(-HIDDEN_MAX);
+    truncated = true;
+  }
   return new Promise((resolve) => {
-    chrome.storage.local.set({ hidden: hidden }, () => {
-      if (chrome.runtime.lastError) console.warn('setHiddenFiles error:', chrome.runtime.lastError);
-      resolve();
+    chrome.storage.local.set({ hidden: trimmed }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn('setHiddenFiles error:', chrome.runtime.lastError);
+        return resolve({ ok: false, truncated });
+      }
+      resolve({ ok: true, truncated });
     });
   });
 }

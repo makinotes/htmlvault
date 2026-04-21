@@ -74,7 +74,9 @@ async function _scanRecursive(dirHandle, relPrefix, rootName, results, onProgres
     }
     }
   } catch (e) {
-    // Permission revoked mid-traversal or handle invalid — return what we have.
+    // Permission revoked mid-traversal or handle invalid — return what we have,
+    // but log so users can diagnose when folders silently show fewer files.
+    console.warn('scanner: error iterating "' + (relPrefix || rootName) + '":', e);
     return;
   }
 
