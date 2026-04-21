@@ -92,13 +92,8 @@ Results are cached by file modification time — only changed files are re-read.
 
 Earlier versions of HTMLVault shipped as a Python CLI (`pip install htmlvault` → `htmlvault serve` / `htmlvault scan`). **This CLI is retired.** All future development happens in the Chrome extension.
 
-The Python source under `htmlvault/` is kept in the repo for historical reference only:
-
-- The `.py` files are wrapped in docstrings — they import cleanly but export nothing, so `from htmlvault.cli import main` fails at import time.
-- `pyproject.toml` is fully commented out, so `pip install .` / `pip install -e .` / `python -m build` will all refuse to produce a package.
+- The `htmlvault/` package and `pyproject.toml` have been removed from the working tree. If you specifically need the old CLI, check out commit `4fd67a1` (the last live-Python commit before retirement) or any earlier commit.
 - PyPI release `htmlvault==0.1.0` remains available but will not receive updates.
-
-If you specifically need the old CLI, check out an earlier git tag (`<= v0.1.0`) — but you almost certainly don't.
 
 **Why the change?** HTMLVault's target user is someone who just wants to browse their AI-generated HTML files. That user doesn't have Python installed. A Chrome extension removes the entire Python toolchain from the install path and gets us cross-platform for free. Maintaining both forms meant every categorizer tweak had to be written twice.
 
@@ -115,8 +110,7 @@ extension/          ← Chrome MV3 extension (the product)
   icons/
 
 package.sh          ← Build a release zip from extension/
-htmlvault/          ← Retired Python CLI (commented out, kept for history)
-pyproject.toml      ← Commented out; repo is no longer a Python package
+tests/              ← Node unit tests for the extension's pure logic
 ```
 
 ## For maintainers — releasing a new version
