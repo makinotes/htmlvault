@@ -1,9 +1,19 @@
-__pycache__/
-*.pyc
-*.egg-info/
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Release zips (built by package.sh, uploaded to GitHub Releases)
 dist/
-build/
-.htmlvault/
-*.egg
-.venv/
-venv/
+
+# Node (if tests grow dependencies)
+node_modules/
+
+# Logs / temp
+*.log
+*.tmp
