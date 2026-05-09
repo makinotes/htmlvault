@@ -2,6 +2,8 @@
 
 **Your AI-generated HTML showcase, as a Chrome extension.**
 
+![Gallery view](docs/gallery.png)
+
 AI tools (Claude, ChatGPT, Cursor) generate self-contained HTML files — slides, charts, dashboards, data cards — that pile up across project directories with no good way to browse, organize, or find them later. HTMLVault solves this.
 
 Pick a folder on your machine, HTMLVault scans it for `.html` / `.htm` files, auto-categorizes them, and shows everything in a clean gallery. Files never leave your machine.
