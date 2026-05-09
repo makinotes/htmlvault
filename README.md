@@ -88,6 +88,26 @@ Results are cached by file modification time — only changed files are re-read.
 - Pinned paths and hidden paths are stored in `chrome.storage.local`.
 - Directory handles are stored in the extension's IndexedDB.
 
+## Known limitations
+
+- Categorization reads only the first 200 KB of each file — very large or unusual HTML may land in the wrong category.
+- First scan of a deeply nested folder takes a few seconds; cached after that.
+- No manual tags, collections, or notes — just pin / hide / search.
+- Chromium-only. Safari and Firefox don't expose the File System Access API.
+
+## Roadmap
+
+Possible directions if there's interest:
+
+- Manual tags or collections beyond the auto-categorizer
+- Export a folder's gallery as a static HTML index
+- Inline preview without opening files
+- Better signal extraction from titles / first paragraphs
+
+## Contributing
+
+I'm not actively maintaining this — it solved a problem for me and now it's out there. If something is broken or you want a feature, PRs are the fastest path forward. Issues are fine but I may not get to them quickly.
+
 ## The old Python CLI (retired)
 
 Earlier versions of HTMLVault shipped as a Python CLI (`pip install htmlvault` → `htmlvault serve` / `htmlvault scan`). **This CLI is retired.** All future development happens in the Chrome extension.
